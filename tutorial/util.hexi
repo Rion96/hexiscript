@@ -1,0 +1,54 @@
+# Some more useful features and hints
+
+# Generate a random number between 0 and [BOUND] (exclusive):
+# Syntax: rand [BOUND]
+println "Random number between 1 and 10: " + (1 + rand 10)
+
+# Get ceiling or floor of number:
+# Syntax: ceil  [NUMBER]
+#         floor [NUMBER]
+let num 3 / 2.
+println "Ceil of 3/2:  " + ceil num
+println "Floor of 3/2: " + floor num
+
+# Exponent
+# Syntax: [NUMBER] ^ [EXPONENT]
+println "2 ^ 10  = " + 2 ^ 10
+
+# (Hint: Use floor to cast to integer)
+println "2 ^ 10  = " + floor (2 ^ 10)
+
+# (Hint: Use n ^ 0.5 for square root)
+fun sqrt n; return n ^ 0.5; endfun
+
+println "sqrt(9) = " + sqrt 9
+println "sqrt(2) = " + sqrt 2
+
+# Convert to a number with tonum
+println "122 + 1 = " + (tonum "122" + 1)
+println "1.5 + 1 = " + (tonum "1.5" + 1)
+println "ASCII for A is: " + tonum 'A'
+
+# or convert to string
+# (tostr technically not necessary here,
+#  as print/println casts automatically)
+println tostr (!true)
+println tostr (7.5 / 2)
+# Allows us to concatenate numbers:
+println tostr 123 + 456
+# though this works too:
+println "" + 123 + 456
+
+# Character manipulation:
+# Use tochar to convert an ascii code to a char
+println tochar 65 # 65 -> 'A'
+
+# (Hint: Subtract '0' to get number from char)
+let num   "765"
+# num[1] -> '6' 
+# Remember that strings can be treated like arrays ('arrays.hexi')
+let digit num[1]
+if digit >= '0' && digit <= '9'
+  println digit - '0' + 4 # '6' - '0' + 4 = 6 + 4 = 10
+endif
+

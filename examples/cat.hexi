@@ -1,0 +1,11 @@
+# Print out contents of heapsort.hexi
+
+fun main
+  let file openin "heapsort.hexi"
+  while !(catch (let c read char file))
+    print c
+  endwhile
+  close file
+endfun
+
+main()

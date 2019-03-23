@@ -1,0 +1,29 @@
+# hexiscript is dynamically typed.
+# The type of a variable is inferred on definition.
+# Syntax: let [VAR] [VALUE]
+
+let x 1 # Now an int
+println "1 + 1 = " + (x + x)
+
+# x can change its type:
+let x "1 + 1 = " + (x + x) # Now a string
+println x
+
+# For incrementing/decrementing,
+# you may use prefix or postfix ++/--
+let x 1
+println "1 + 1 = " + ++x
+println "1 + 1 = " + x
+
+# Supported types:
+# str   -> string
+# char 	-> char
+# int   -> int
+# float -> float
+# bool  -> boolean
+
+let s "Test"; println s
+let c    'T'; println c
+let i    123; println i
+let f    0.5; println f
+let b   true; println b

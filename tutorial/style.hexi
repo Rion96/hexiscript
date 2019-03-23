@@ -1,0 +1,63 @@
+# hexiscript tries to accomodate different coding styles.
+# Some styles might, however, not work consistently with all keywords.
+# I recommend following these rules:
+
+# It is recommended to place the main part of your program in a main function:
+fun main
+  println "This way you can define the main function at the top of the program"
+  println "while still being able to make use of functions defined at the bottom."
+  print "1 + 2 = "; test(1 + 2)
+endfun
+
+# Line breaks are generally not required.
+# ; can always be used in place. So, this is possible:
+print "Hello "; println "World!"
+
+# Parentheses can be used in the head of 'if' or 'while' blocks,
+# as well as any function calls, or whenever ambiguity needs to be resolved
+# Do NOT! use parentheses in a function definition or around a 'for' loop head!
+
+# Does NOT work:
+# fun test(x); println x; endfun
+# for (let i 0; i < 3; i++); test(i); endfor
+
+# Works:
+fun test x; println x; endfun
+for let i 0; i < 3; i++; test(i); endfor
+
+print "No need for parentheses! test i works just as well as test(i)"; test "!"
+
+# Though using parentheses after a function call
+# might help to set functions apart from variables
+
+let x 0
+
+# With parentheses
+if (x = 0)
+  # Indentation is optional, but recommended. Preferably two spaces.
+  # But different spacing or tabstops works fine too, of course.
+  println "This is fine!" 
+endif
+
+# Without parentheses
+if x = 0
+  println "This is also fine!"
+endif
+
+# Or even all in one line
+if x = 0; println "This is fine too!"; endif
+
+# Using parentheses here is not necessary, 
+# but nicer to look at, as it keeps variable name and definition separate:
+let x (x + 1); print x
+
+# But this works too
+let x x + 1; print x
+
+# For incrementing/decrementing by one,
+# there are also prefix and postfix ++/-- operators
+print ++x; print x++
+print --x; print x--
+println "\n"
+
+main() # Calling main without the parentheses works too

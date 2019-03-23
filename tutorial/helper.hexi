@@ -1,0 +1,31 @@
+# Helper file for 'include.hexi'
+
+fun sqrt n
+  return n ^ 0.5
+endfun
+
+fun to_upper s
+  let out ""
+  let l   len s
+  for let i 0; i < l; i++
+    if s[i] >= 'a' && s[i] <= 'z'
+      let out (out + tochar (s[i] - 32))
+    else
+      let out (out + s[i])
+    endif
+  endfor
+  return out
+endfun
+
+fun to_lower s
+  let out ""
+  let l   len s
+  for let i 0; i < l; i++
+    if s[i] >= 'A' && s[i] <= 'Z'
+      let out (out + tochar (s[i] + 32))
+    else
+      let out (out + s[i])
+    endif
+  endfor
+  return out
+endfun

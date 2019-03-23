@@ -1,0 +1,47 @@
+# Floyd-Warshall
+
+fun main
+  let n           3
+  let dist        matinit(n)
+  let dist[0][1]  1
+  let dist[1][2]  2
+  let dist[0][2]  5
+  
+  println "Current distance from node 0 to node 2: " + dist[0][2]
+  floydw dist
+  println "New distance from node 0 to node 2:     " + dist[0][2]
+endfun
+
+fun floydw dist
+  let n len dist
+
+  for let k 0; k < n; k++
+    for let i 0; i < n; i++
+      for let j 0; j < n; j++
+        if dist[i][k] + dist[k][j] < dist[i][j]
+          let dist[i][j] dist[i][k] + dist[k][j]
+        endif
+      endfor
+    endfor
+  endfor
+endfun
+
+fun matinit n
+  let inf 10
+  let m   arr n
+
+  for let i 0; i < n; i++
+    let m[i] arr n
+
+    for let j 0; j < n; j++
+      if i != j
+        let m[i][j] inf
+      endif
+    endfor
+
+  endfor
+
+  return m
+endfun
+
+main()

@@ -1,0 +1,109 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "hexiscript",
+	"patterns": [
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#strings"
+		},
+		{
+			"include": "#comment"
+		},
+		{
+			"include": "#char-literal"
+		},
+		{
+			"include": "#boolean-literal"
+		},
+		{
+			"include": "#function"
+		},
+		{
+			"include": "#type-name"
+		}
+	],
+	"repository": {
+		"keywords": {
+			"patterns": [{
+				"name": "keyword.control.hexiscript",
+				"match": "\\b(include|catch|for|endfor|read|write|throw|openin|openout|close|scan|let|if|else|endif|endfun|return|while|endwhile|println|print|break)\\b"
+			},
+			{
+				"name": "keyword.operator.new",
+				"match": "\\b(arr)\\b"
+			},
+			{
+				"name": "keyword.operator",
+				"match": "(rand|\\^|\\!|floor|ceil|tonum|tochar|tostr|len|\\+\\+|\\-\\-|\\+|\\-|\\*|\\%|\\/|>=|<=|>|<|=)"
+			}]
+		},
+		"strings": {
+			"name": "string.quoted.double.hexiscript",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape.hexiscript",
+					"match": "\\\\."
+				}
+			]
+		},
+		"char-literal": {
+			"name": "string.quoted.single.hexiscript",
+			"begin": "'",
+			"end": "(\\')|((?:[^\\\\\\n])$)",
+			"patterns": [
+				{
+					"include": "#char-character-escape"
+				}
+			]
+		},
+		"char-character-escape": {
+			"name": "constant.character.escape.hexiscript",
+			"match": "\\\\(['\"\\\\0abfnrtv]|x[0-9a-fA-F]{1,4}|u[0-9a-fA-F]{4})"
+		},
+		"comment": {
+			"name": "comment.hexiscript",
+			"match": "#.*"
+		},
+		"function": {
+			"name": "function.hexiscript",
+			"patterns": [
+				{
+					"match": "(fun) ([A-Za-z_]+)",
+					"captures": {
+						"1": {
+							"name": "keyword.control"
+						},
+						"2": {
+							"name": "entity.name.function.hexiscript"
+						}
+					}
+				}
+			]
+		},
+		"boolean-literal": {
+			"patterns": [
+				{
+					"name": "constant.language.boolean.true.hexiscript",
+					"match": "(?<!\\.)\\btrue\\b"
+				},
+				{
+					"name": "constant.language.boolean.false.hexiscript",
+					"match": "(?<!\\.)\\bfalse\\b"
+				}
+			]
+		},
+		"type-name": {
+			"patterns": [
+				{
+					"name": "entity.name.type.hexiscript",
+					"match": "\\b(str|int|char|bool|float)\\b"
+				}
+			]
+		}
+	},
+	"scopeName": "source.hexi"
+}

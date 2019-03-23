@@ -1,0 +1,51 @@
+fun main
+  # Use openout to create an out_channel
+  let file openout "ReadThis.txt"
+
+  println "Writing to file \"ReadThis.txt\"..."
+
+  # 'write' takes a value (str, char, int, or float) and an out_channel
+  # and writes the value to the out_channel
+  write "You're awesome!" file; close file # 'close' closes in_channel/out_channel
+
+  println "Go on! Check it out!"
+  pause()
+
+  println "In case you haven't, here is what it said:"
+
+  # Use openin to create an in_channel
+  let file openin "ReadThis.txt"
+
+  # 'read' takes a type (str or char) and an in_channel
+  # and returns the value read from in_channel
+  let val read str file
+
+  # 'catch' will return 'true' if an exception occured while reading
+  # (e.g end of file reached), 'false' otherwise
+  if catch val
+    println "Huh, looks like the file is empty..."
+    close file
+    cleanup()
+    return 1
+  endif
+  println val; close file
+
+  # hexiscript also has the keyword 'throw' which forces an exception.
+  # But it can NOT! be caught with catch!
+
+  cleanup()
+  return 0
+endfun
+
+fun pause
+  print "Press any key to continue..."
+  scan str x
+endfun
+
+fun cleanup
+  let file openout "ReadThis.txt"
+  write "Run files.hexi to see what will be written here!" file
+  close file
+endfun
+
+main()

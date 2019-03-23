@@ -1,0 +1,54 @@
+# hexiscript has 'if' and 'else' statements
+# Every control structure has to be terminated
+# by its respective end token (e.g endif).
+
+if 1 + 1 = 2
+  println "Yes... 1 + 1 = 2"
+else
+  println "Wait, what?"
+endif
+
+# 'else if' will therefore unfortunately require a separate endif
+if 1 + 1 = 3
+  println "Seriously?"
+else if 1 + 1 = 2
+  println "There we go!"
+else
+  println "You'll never see this anyway!"
+endif; endif # 2 endifs
+
+# Of course, 'else' is not necessary
+if 1 + 1 = 2
+  println "Why even check for else?"
+endif
+
+# 'for' and 'while' loops are also supported
+let counter 1
+println "While loop:"
+
+while counter <= 5
+  print counter + " "
+  counter++
+endwhile
+println "Done!"
+
+println "For loop:"
+
+for let counter 1; counter <= 5; counter++
+  print counter + " "
+endfor
+println "Done!"
+
+# You can also use break to exit a loop at any time:
+let counter 1
+
+println "Using break:"
+
+while 1 + 1 = 2
+  if counter > 5
+    break
+  endif
+  print counter + " "
+  counter++
+endwhile
+println "Done!"

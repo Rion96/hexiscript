@@ -1,0 +1,26 @@
+# Functions are defined as such:
+# Syntax: 
+# fun [NAME] [ARG_1] ... [ARG_N]
+#   [BODY]
+# endfun
+
+fun main
+  println "1 + 1 = " + add 1 1
+endfun
+
+# Functions can NOT be called before they are defined!
+# Defining a main function and calling it
+# at the bottom of the file can circumvent this.
+
+# Does NOT work up here:
+# println "1 + 1 = " + add 1 1
+
+fun add a b
+  # Values can be returned with return
+  return a + b
+endfun
+
+# Works now.
+println "1 + 1 = " + add 1 1
+
+main() # Parentheses are optional for function calls

@@ -1,0 +1,29 @@
+# Sieve of Eratosthenes
+
+fun main
+  print "Prime numbers up to? "
+  scan int n
+  let prime sieve n
+  for let p 2; p <= n; p++
+    if prime[p]
+      println p
+    endif
+  endfor
+endfun
+
+fun sieve n
+  let prime arr (n + 1)
+  for let i 2; i <= n; i++
+    let prime[i] true
+  endfor
+  for let p 2; p * p <= n; p++
+    if prime[p]
+      for let i p * p; i <= n; let i (i + p)
+        let prime[i] false
+      endfor
+    endif
+  endfor
+  return prime
+endfun
+
+main()

@@ -1,0 +1,55 @@
+# Heapsort
+
+fun main
+  let bound 1024 # Bound for random numbers
+  print "How many elements? "
+  scan int n
+  let h arr n
+  println "Array:"
+  for let i 0; i < n; i++
+    let h[i] rand bound
+    print h[i] + " "
+  endfor
+  println "\nSorted:"
+  heapsort(h)
+  for let i 0; i < n; i++
+    print h[i] + " "
+  endfor
+  println ""
+endfun
+
+fun heapsort h
+  let n len h
+  # Initialize as heap
+  for let i n / 2 - 1; i >= 0; i--
+    sift_down h n i
+  endfor
+  # Poll elements until empty
+  while n > 0
+    let tmp  h[0]
+    let h[0] h[--n]
+    let h[n] tmp
+    sift_down h n 0
+  endwhile
+endfun
+
+fun sift_down h n index
+  while index * 2 + 1 < n
+    let child index * 2 + 1
+    if child + 1 < n
+      if h[child] < h[child + 1]
+        child++
+      endif
+    endif
+    if h[index] < h[child]
+      let tmp       h[index]
+      let h[index]  h[child]
+      let h[child]  tmp
+      let index     child
+    else
+      break
+    endif
+  endwhile
+endfun
+
+main()

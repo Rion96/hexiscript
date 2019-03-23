@@ -1,0 +1,58 @@
+# Arrays are created with with the 'arr' keyword:
+# Syntax: let [VAR] arr [LENGTH]
+
+# Arrays can hold values of different types.
+# Initial value of elements is 0
+
+let x arr 3
+
+# The length of an array can be determined using len:
+# Syntax: len [var]
+println "Array x has length " + len x
+
+# Arrays are, of course, indexed starting from 0.
+let x[0] "Hello"
+
+# scan can write to arrays too.
+print "What is your name? "
+scan str x[1]
+
+# Strings can also be treated as arrays.
+println "The first character of \"Hello\" is " + "Hello"[0]
+println "The word \"Hello\" has " + len "Hello" + " characters"
+
+# Of course we already stored "Hello" in x[0], so let's use that.
+println "The first character of \"Hello\" is " + x[0][0]
+println "The word \"Hello\" has " + len x[0] + " characters"
+
+let x[2] len x[1]
+let x[2] "Your name has " + x[2] + " characters"
+
+# Let's print out our array!
+print "{"
+for let i 0; i < len x; i++
+  print x[i]
+  if i < len x - 1
+    print ", "
+  endif
+endfor
+println "}"
+
+# Multidimensional arrays work too.
+# They need to be initialized manually, however:
+let mat arr 3
+
+for let i 0; i < 3; i++
+  let mat[i]    arr 3
+  let mat[i][i] 1
+endfor
+
+# Let's print it:
+println "Identity matrix:"
+for let i 0; i < 3; i++
+  print "| "
+  for let j 0; j < 3; j++
+    print mat[i][j] + " "
+  endfor
+  println "|"
+endfor

@@ -1,0 +1,25 @@
+{
+    "name": "hexicode",
+    "displayName": "hexiCode",
+    "description": "Syntax highlighting for hexiscript",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": "^1.32.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [{
+            "id": "hexiscript",
+            "aliases": ["hexiscript", "hexiscript"],
+            "extensions": [".hexi"],
+            "configuration": "./language-configuration.json"
+        }],
+        "grammars": [{
+            "language": "hexiscript",
+            "scopeName": "source.hexi",
+            "path": "./syntaxes/hexiscript.tmLanguage.json"
+        }]
+    }
+}

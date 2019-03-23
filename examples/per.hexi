@@ -1,0 +1,26 @@
+# Based on the code from this Numberphile video:
+# https://youtu.be/Wim9WJeDTHQ
+
+fun main
+  print "Enter a number: "
+  scan int n
+  println per(n)
+endfun
+
+fun per n
+  let s tostr n
+  let l len s
+  if l = 1
+    println n
+    return "DONE"
+  endif
+  let digits arr l
+  let result 1
+  for let i 0; i < l; i++
+    let result (result * (s[i] - '0'))
+  endfor
+  println result
+  return per(result)
+endfun
+
+main()

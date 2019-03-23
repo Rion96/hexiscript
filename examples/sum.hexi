@@ -1,0 +1,33 @@
+fun main
+  println "Sum of multiples of 3 or 5 below 1000:"
+  println sum 1000
+  println "Sum of even Fibonacci numbers up to 4 million:"
+  println fib 4000000
+endfun
+
+fun sum bound
+  let acc 0
+  for let a 1; a < bound; a++
+    if a % 3 = 0 || a % 5 = 0
+      let acc (acc + a)
+    endif
+  endfor
+  return acc
+endfun
+
+fun fib bound
+  let a   1
+  let b   1
+  let acc 0
+  while b <= bound
+    if b % 2 = 0
+      let acc (acc + b)
+    endif
+    let tmp (a + b)
+    let a   b
+    let b   tmp
+  endwhile
+  return acc
+endfun
+
+main()

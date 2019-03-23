@@ -1,0 +1,10 @@
+# The 'include' keyword lets us import the contents of other files
+# It functions similarly to the preprocessor #include in C,
+# in that it just copies the contents into this file.
+
+# Syntax include "[FILENAME]"
+include "helper.hexi"
+
+println "sqrt(9) = " + floor sqrt 9
+println to_upper "This should be upper case!"
+println to_lower "This Should All Be Lower Case."

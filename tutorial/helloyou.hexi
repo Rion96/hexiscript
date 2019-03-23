@@ -1,0 +1,14 @@
+# scan provides basic scanning functionality.
+# Syntax: scan [TYPE] [VAR]
+
+# Types usually needn't be specified in hexiscript.
+# scan, however, is an exception to this.
+
+# scan supports the following types:
+# str
+# int
+# float
+
+print "What is your name? "
+scan str name
+println "Hello " + name + "!"
