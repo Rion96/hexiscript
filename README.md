@@ -16,11 +16,15 @@ A very rough extension to provide some basic syntax highlighting for .hexi files
 
 ## Operator precedence:
 1. `function calls, [], ++ and -- (postfix)`
-2. `len, rand, openin, openout, close, read, floor, ceil, tonum, tostr, tochar, catch, ^, !, ++ and -- (prefix), - (unary)`
-3. `*, /, %`
-4. `+, -`
-5. `<, <=, >, >=`
-6. `=, !=`
-7. `&&`
-8. `||`
-9. `let, print, println, return, scan, write, throw`
+1. `len, rand, openin, openout, close, read, floor, ceil, sin, cos, tan, sinh, cosh, tanh, asin, acos, atan, exp, ln, log, sqrt, abs, tonum, tostr, tochar, catch, ^^, ~, !, - (unary), ++ and -- (prefix)`
+1. `*, /, %`
+1. `+, -`
+1. `<<, >>, >>>`
+1. `<, <=, >, >=`
+1. `=, !=`
+1. `&`
+1. `^`
+1. `|`
+1. `&&`
+1. `||`
+1. `let, print, println, return, scan, write, throw, free`

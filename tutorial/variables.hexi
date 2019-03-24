@@ -12,8 +12,8 @@ println x
 # For incrementing/decrementing,
 # you may use prefix or postfix ++/--
 let x 1
-println "1 + 1 = " + ++x
-println "1 + 1 = " + x
+println "1 + 1 = " + ++x  # prints 2, x now 2
+println "1 + 1 = " + x--  # prints 2, x now 1
 
 # Supported types:
 # str   -> string
@@ -27,3 +27,14 @@ let c    'T'; println c
 let i    123; println i
 let f    0.5; println f
 let b   true; println b
+
+# While OCaml is garbage collected, and variables
+# (except potentially arrays, if passed between functions) 
+# get deleted beyond their function scope, you might want to use 'free' 
+# to delete variables you don't need anymore, especially if you plan
+# to stay in a scope for long or allocated a lot of large arrays.
+
+println x
+free x
+# Would now throw an error:
+# println x

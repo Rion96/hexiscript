@@ -28,7 +28,7 @@
 		"keywords": {
 			"patterns": [{
 				"name": "keyword.control.hexiscript",
-				"match": "\\b(include|catch|for|endfor|read|write|throw|openin|openout|close|scan|let|if|else|endif|endfun|return|while|endwhile|println|print|break)\\b"
+				"match": "\\b(free|include|catch|for|endfor|read|write|throw|openin|openout|close|scan|let|if|else|endif|endfun|return|while|endwhile|println|print|break)\\b"
 			},
 			{
 				"name": "keyword.operator.new",
@@ -36,7 +36,7 @@
 			},
 			{
 				"name": "keyword.operator",
-				"match": "(rand|\\^|\\!|floor|ceil|tonum|tochar|tostr|len|\\+\\+|\\-\\-|\\+|\\-|\\*|\\%|\\/|>=|<=|>|<|=)"
+				"match": "(floor|ceil|tonum|tochar|tostr|rand|sinh|cosh|tanh|asin|acos|atan|sqrt|len|abs|exp|log|sin|cos|tan|>>>|>>|<<|~|\\^\\^|\\^|\\!|ln|&&|\\|\\||&|\\||\\+\\+|\\-\\-|\\+|\\-|\\*|\\%|\\/|>=|<=|>|<|=)"
 			}]
 		},
 		"strings": {

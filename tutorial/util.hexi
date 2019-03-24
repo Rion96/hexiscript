@@ -12,17 +12,11 @@ println "Ceil of 3/2:  " + ceil num
 println "Floor of 3/2: " + floor num
 
 # Exponent
-# Syntax: [NUMBER] ^ [EXPONENT]
-println "2 ^ 10  = " + 2 ^ 10
+# Syntax: [NUMBER] ^^ [EXPONENT]
+println "2 ^^ 10  = " + 2 ^^ 10
 
 # (Hint: Use floor to cast to integer)
-println "2 ^ 10  = " + floor (2 ^ 10)
-
-# (Hint: Use n ^ 0.5 for square root)
-fun sqrt n; return n ^ 0.5; endfun
-
-println "sqrt(9) = " + sqrt 9
-println "sqrt(2) = " + sqrt 2
+println "2 ^^ 10  = " + floor (2 ^^ 10)
 
 # Convert to a number with tonum
 println "122 + 1 = " + (tonum "122" + 1)
@@ -30,9 +24,7 @@ println "1.5 + 1 = " + (tonum "1.5" + 1)
 println "ASCII for A is: " + tonum 'A'
 
 # or convert to string
-# (tostr technically not necessary here,
-#  as print/println casts automatically)
-println tostr (!true)
+println "This sentence is " + tostr (!true)
 println tostr (7.5 / 2)
 # Allows us to concatenate numbers:
 println tostr 123 + 456

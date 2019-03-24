@@ -1,0 +1,38 @@
+# A bunch of useful math operations (see more in util.hexi)
+
+fun main
+  println "---Numbers---"
+  println 10.0        # float 10
+  println 10.         # float 10
+  println 10          # int 10
+  println 0b10        # Binary 10 -> 2
+  println 0o10        # Octal 10  -> 8
+  println 0x10        # Hex 10    -> 16
+  println "---Binary operations---"
+  println 0b10 | 0b01 # -> 0b11 -> 3
+  println 0b10 & 0b11 # -> 0b10 -> 2
+  println 0b10 ^ 0b11 # -> 0b01 -> 1
+  println 0b01 << 1   # -> 0b10 -> 2
+  println 0b10 >> 1   # -> 0b01 -> 1
+  println (-2) >> 1   # -> -1
+  println (-2) >>> 1  # -> 4611686018427387903
+  println ~0b10       # -> -3 (one's complement/inverted)
+  println "---Math operations---"
+  println sqrt 4      # -> 2
+  println asin 0      # -> 0
+  println sin 0       # -> 0
+  println acos 0      # -> 1.57...
+  println cos 0       # -> 1
+  println atan 1      # -> 0.78...
+  println tan 1       # -> 1.55...
+  println abs (-1)    # -> 1
+  println exp 1       # -> 2.71...
+  println log 10      # -> 1
+  println ln (exp 1)  # -> 1
+  println sinh 1      # -> 1.17...
+  println tanh 1      # -> 0.76...
+  println cosh 1      # -> 1.54...
+  println 2 ^^ .5     # -> sqrt(2)
+endfun
+
+main()

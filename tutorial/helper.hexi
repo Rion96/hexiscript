@@ -1,7 +1,7 @@
 # Helper file for 'include.hexi'
 
-fun sqrt n
-  return n ^ 0.5
+fun square_root n
+  return n ^^ .5
 endfun
 
 fun to_upper s
