@@ -1536,16 +1536,17 @@ let interpreter (tokens : token list) = (
         let vars = eval_rpn cond vars [] in
         let ret = try List.assoc "_EVAL_" vars
         with Not_found -> raise (InvalidToken (NAME "_EVAL_", "at WHILE")) in
-        match ret, List.mem_assoc "_BREAK_" vars with
-        | BOOL true, false ->
+        match ret with
+        | BOOL true ->
           let vars = iterate copy vars funs in
           if List.mem_assoc "_RETURN_" vars then
             vars
+          else if List.mem_assoc "_BREAK_" vars then
+            iterate stack (List.remove_assoc "_BREAK_" vars) funs
           else
             loop vars
-        | _, true -> iterate stack (List.remove_assoc "_BREAK_" vars) funs
-        | BOOL false, _ -> iterate stack vars funs
-        | eval, _ -> raise (InvalidToken (eval, "at WHILE"))
+        | BOOL false -> iterate stack vars funs
+        | eval -> raise (InvalidToken (eval, "at WHILE"))
       ) in
       loop vars
     )
@@ -1559,16 +1560,17 @@ let interpreter (tokens : token list) = (
         let vars = eval_rpn cond vars [] in
         let ret = try List.assoc "_EVAL_" vars
         with Not_found -> raise (InvalidToken (NAME "_EVAL_", "at FOR")) in
-        match ret, List.mem_assoc "_BREAK_" vars with
-        | BOOL true, false ->
+        match ret with
+        | BOOL true ->
           let vars = iterate copy vars funs in
           if List.mem_assoc "_RETURN_" vars then
             vars
+          else if List.mem_assoc "_BREAK_" vars then
+            iterate stack (List.remove_assoc "_BREAK_" vars) funs
           else
             loop (eval_rpn term vars [])
-        | _, true -> iterate stack (List.remove_assoc "_BREAK_" vars) funs
-        | BOOL false, _ -> iterate stack vars funs
-        | eval, _ -> raise (InvalidToken (eval, "at FOR"))
+        | BOOL false -> iterate stack vars funs
+        | eval -> raise (InvalidToken (eval, "at FOR"))
       ) in
       loop vars
     )
