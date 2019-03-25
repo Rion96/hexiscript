@@ -32,9 +32,12 @@ let b   true; println b
 # (except potentially arrays, if passed between functions) 
 # get deleted beyond their function scope, you might want to use 'free' 
 # to delete variables you don't need anymore, especially if you plan
-# to stay in a scope for long or allocated a lot of large arrays.
+# to stay in a scope for long or you allocated a lot of large arrays.
 
 println x
+println catch x # 'catch' returns false if defined
 free x
 # Would now throw an error:
 # println x
+println catch x # 'catch' returns true if undefined
+

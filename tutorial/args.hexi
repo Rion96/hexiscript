@@ -1,0 +1,15 @@
+# Arguments passed to the program can be accessed through the args array
+# This array is only accessible in the outermost scope,
+# so it has to be passed to the main function as a parameter (There is no global scope!)
+
+fun main args
+  # The first argument is always the name of the file
+  println "This file is called: " + args[0]
+  if len args > 1
+    println "You typed: " + args[1]
+  else
+    println "You didn't add any arguments."
+  endif
+endfun
+
+main(args)

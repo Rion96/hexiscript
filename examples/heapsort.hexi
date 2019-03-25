@@ -4,6 +4,10 @@ fun main
   let bound 1024 # Bound for random numbers
   print "How many elements? "
   scan int n
+  if catch n
+    println "Please enter a valid integer!"
+    return 1
+  endif
   let h arr n
   println "Array:"
   for let i 0; i < n; i++
@@ -16,6 +20,7 @@ fun main
     print h[i] + " "
   endfor
   println ""
+  return 0
 endfun
 
 fun heapsort h

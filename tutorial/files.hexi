@@ -1,5 +1,12 @@
 fun main
+  # 'exists' checks if file exists in current directory
+  if !(exists "ReadThis.txt")
+    println "Please run this file from the \"tutorial\" directory!"
+    return 1
+  endif
   # Use openout to create an out_channel
+  # Will create new file, if it does not exist yet
+  # WARNING: THIS WILL OVERWRITE THE FILE, IF IT ALREADY EXISTS!
   let file openout "ReadThis.txt"
 
   println "Writing to file \"ReadThis.txt\"..."
@@ -29,6 +36,21 @@ fun main
     return 1
   endif
   println val; close file
+
+  # 'catch' also detects undefined variables or failed open operations
+  let does_not_exist openin "idontexist.txt"
+  if catch does_not_exist
+    println "As expected, file \"idontexist.txt\" does not exist."
+  else
+    println "Did you create the file? ;)"; close does_not_exist
+  endif
+  free does_not_exist # Variable no longer defined
+
+  if catch does_not_exist # -> true
+    println "This is now definitely true!"
+  else
+    println "Don't mess with the source code! >:("
+  endif
 
   # hexiscript also has the keyword 'throw' which forces an exception.
   # But it can NOT! be caught with catch!

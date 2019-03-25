@@ -3,12 +3,18 @@
 fun main
   print "Prime numbers up to? "
   scan int n
+  if catch n
+    println "Please enter an integer!"
+    return 1
+  endif
+  
   let prime sieve n
   for let p 2; p <= n; p++
     if prime[p]
       println p
     endif
   endfor
+  return 0
 endfun
 
 fun sieve n

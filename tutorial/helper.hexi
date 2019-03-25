@@ -1,5 +1,9 @@
 # Helper file for 'include.hexi'
 
+# Similar to #ifndef in C
+if catch HELPER_HEXI  # Catch returns true if variable not defined
+let HELPER_HEXI true
+
 fun square_root n
   return n ^^ .5
 endfun
@@ -29,3 +33,5 @@ fun to_lower s
   endfor
   return out
 endfun
+
+endif # HELPER_HEXI

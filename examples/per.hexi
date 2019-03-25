@@ -1,10 +1,26 @@
 # Based on the code from this Numberphile video:
 # https://youtu.be/Wim9WJeDTHQ
 
-fun main
-  print "Enter a number: "
-  scan int n
-  println per(n)
+fun main args
+  if len args > 1
+    let num toint(args[1])
+    if catch num
+      println "Please enter a valid number!"
+      return 1
+    endif
+    println num
+    per(num)
+  else
+    println "Please call this program with a number as argument"
+  endif
+endfun
+
+fun toint s
+  let n tonum s
+  if catch n
+    return n
+  endif
+  return floor n
 endfun
 
 fun per n
@@ -23,4 +39,4 @@ fun per n
   return per(result)
 endfun
 
-main()
+main(args)
