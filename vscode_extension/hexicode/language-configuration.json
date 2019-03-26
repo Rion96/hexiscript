@@ -15,15 +15,16 @@
         ["(", ")"],
         ["\"", "\""],
         ["'", "'"],
-        ["if ", "endif"],
-        ["fun ", "endfun"],
-        ["while ", "endwhile"],
-        ["for ", "endfor"]
+        {"open": "if ", "close": "endif", "notIn": ["string", "comment"]},
+        {"open": "fun ", "close": "endfun", "notIn": ["string", "comment"]},
+        {"open": "while ", "close": "endwhile", "notIn": ["string", "comment"]},
+        {"open": "for ", "close": "endfor", "notIn": ["string", "comment"]}
     ],
     // symbols that that can be used to surround a selection
     "surroundingPairs": [
         ["[", "]"],
         ["(", ")"],
+        ["<", ">"],
         ["\"", "\""],
         ["'", "'"],
         ["if", "endif"],
