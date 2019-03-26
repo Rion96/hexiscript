@@ -1,3 +1,5 @@
+module StrMap = Map.Make (String)
+
 type token =
   | NAME of string
   | FUN of string | ENDFUN
@@ -514,8 +516,8 @@ let char_stack (f : in_channel) = (
 
 let interpreter (tokens : token list) (arg_offset : int) = (
   let rec iterate (input : token list)
-                  (vars : (string * token) list)
-                  (funs : (string * (int * string list * token list)) list) = (
+                  (vars : token StrMap.t)
+                  (funs : (int * string list * token list) StrMap.t) = (
     let rec rpn (input : token list) (stack : token list) (output : token list) = (
       let rec precedence (op : token) (stack : token list) (output : token list) = (
         let higher_order (op : token) (stack_op : token) = (
@@ -577,7 +579,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
         | [] -> (List.rev output), input
         | hd :: tl -> rpn input tl (hd :: output)
       )
-      | NAME n :: tl when List.mem_assoc n funs ->
+      | NAME n :: tl when StrMap.mem n funs ->
         rpn tl (FUN n :: stack) output
       | NAME _ :: tl
       | STR _ :: tl
@@ -677,7 +679,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
       let (output, sequence : token list * token list) = skip_fun input [] 1 in
       (argc, argv, sequence), output
     ) in
-    let rec eval_rpn (input : token list) (vars : (string * token) list) (stack : token list) = (
+    let rec eval_rpn (input : token list) (vars : token StrMap.t) (stack : token list) = (
       let dref (stack : token list) (n : int) = (
         let rec loop (stack : token list) (buffer : token list) (index : int) = (
           if index < n then
@@ -686,7 +688,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
               let elem = a.(i) in
               loop stack (elem :: buffer) (index + 1)
             | NAME a :: stack -> (
-              match List.assoc a vars with
+              match StrMap.find a vars with
               | elem -> (loop [@tailcall]) stack (elem :: buffer) (index + 1)
               | exception Not_found -> (loop [@tailcall]) stack (UNDEFINED a :: buffer) (index + 1)
             )
@@ -716,12 +718,12 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           let stack = dref stack 1 in
           match stack with
           | v :: NAME n :: stack ->
-            eval_rpn input ((n, v) :: (List.remove_assoc n vars)) (v :: stack)
+            eval_rpn input (StrMap.add n v (StrMap.remove n vars)) (v :: stack)
           | v :: INT i :: ARRAY a :: stack ->
             a.(i) <- v; eval_rpn input vars (v :: stack)
           | INT size :: ARR :: NAME n :: stack ->
             let arr = ARRAY (Array.make size (INT 0)) in
-            eval_rpn input ((n, arr) :: (List.remove_assoc n vars)) (arr :: stack)
+            eval_rpn input (StrMap.add n arr (StrMap.remove n vars)) (arr :: stack)
           | INT size :: ARR :: INT i :: ARRAY a :: stack ->
             let arr = ARRAY (Array.make size (INT 0)) in
             a.(i) <- arr; eval_rpn input vars (arr :: stack)
@@ -733,13 +735,13 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             match t with
             | "int" ->
               let v = try INT (read_int ()) with _ -> SCAN_ERR in
-              (eval_rpn [@tailcall]) input ((n, v) :: (List.remove_assoc n vars)) stack
+              (eval_rpn [@tailcall]) input (StrMap.add n v (StrMap.remove n vars)) stack
             | "str" ->
               let v = try STR (read_line ()) with _ -> SCAN_ERR in
-              (eval_rpn [@tailcall]) input ((n, v) :: (List.remove_assoc n vars)) stack
+              (eval_rpn [@tailcall]) input (StrMap.add n v (StrMap.remove n vars)) stack
             | "float" ->
               let v = try FLOAT (Scanf.scanf "%f" (fun v -> v)) with _ -> SCAN_ERR in
-              (eval_rpn [@tailcall]) input ((n, v) :: (List.remove_assoc n vars)) stack
+              (eval_rpn [@tailcall]) input (StrMap.add n v (StrMap.remove n vars)) stack
             | _ -> raise (InvalidToken (NAME t, "at SCAN"))
           )
           | INT i :: ARRAY a :: NAME t :: stack -> (
@@ -769,13 +771,13 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             | tok -> raise (InvalidToken (tok, "at PREFIX_INCR (array)"))
           )
           | NAME n :: stack -> (
-            match List.assoc n vars with
+            match StrMap.find n vars with
             | exception Not_found -> (eval_rpn [@tailcall]) input vars (UNDEFINED n :: stack)
             | v ->
               match v with
               | INT i ->
                 let v = INT (i + 1) in
-                (eval_rpn [@tailcall]) input ((n, v) :: (List.remove_assoc n vars)) (v :: stack)
+                (eval_rpn [@tailcall]) input (StrMap.add n v (StrMap.remove n vars)) (v :: stack)
               | tok -> raise (InvalidToken (tok, "at PREFIX_INCR"))
           )
           | stack -> raise (InvalidToken (LIST stack, "at PREFIX_INCR"))
@@ -791,13 +793,13 @@ let interpreter (tokens : token list) (arg_offset : int) = (
               | tok -> raise (InvalidToken (tok, "at PREFIX_DECR (array)"))
           )
           | NAME n :: stack -> (
-            match List.assoc n vars with
+            match StrMap.find n vars with
             | exception Not_found -> (eval_rpn [@tailcall]) input vars (UNDEFINED n :: stack)
             | v ->
               match v with
               | INT i ->
                 let v = INT (i - 1) in
-                (eval_rpn [@tailcall]) input ((n, v) :: (List.remove_assoc n vars)) (v :: stack)
+                (eval_rpn [@tailcall]) input (StrMap.add n v (StrMap.remove n vars)) (v :: stack)
               | tok -> raise (InvalidToken (tok, "at PREFIX_DECR"))
           )
           | stack -> raise (InvalidToken (LIST stack, "at PREFIX_DECR"))
@@ -813,13 +815,13 @@ let interpreter (tokens : token list) (arg_offset : int) = (
               | tok -> raise (InvalidToken (tok, "at POSTFIX_INCR (array)"))
           )
           | NAME n :: stack -> (
-            match List.assoc n vars with
+            match StrMap.find n vars with
             | exception Not_found -> (eval_rpn [@tailcall]) input vars (UNDEFINED n :: stack)
             | v ->
               match v with
               | INT i ->
                 let v = INT (i + 1) in
-                (eval_rpn [@tailcall]) input ((n, v) :: (List.remove_assoc n vars)) (INT i :: stack)
+                (eval_rpn [@tailcall]) input (StrMap.add n v (StrMap.remove n vars)) (INT i :: stack)
               | tok -> raise (InvalidToken (tok, "at POSTFIX_INCR"))
           )
           | stack -> raise (InvalidToken (LIST stack, "at POSTFIX_INCR"))
@@ -835,13 +837,13 @@ let interpreter (tokens : token list) (arg_offset : int) = (
               | tok -> raise (InvalidToken (tok, "at POSTFIX_DECR (array)"))
           )
           | NAME n :: stack -> (
-            match List.assoc n vars with
+            match StrMap.find n vars with
             | exception Not_found -> (eval_rpn [@tailcall]) input vars (UNDEFINED n :: stack)
             | v ->
               match v with
               | INT i ->
                 let v = INT (i - 1) in
-                (eval_rpn [@tailcall]) input ((n, v) :: (List.remove_assoc n vars)) (INT i :: stack)
+                (eval_rpn [@tailcall]) input (StrMap.add n v (StrMap.remove n vars)) (INT i :: stack)
               | tok -> raise (InvalidToken (tok, "at POSTFIX_DECR"))
           )
           | stack -> raise (InvalidToken (LIST stack, "at POSTFIX_DECR"))
@@ -863,7 +865,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             | tok -> raise (InvalidToken (tok, "at DREF"))
           )
           | INT i :: NAME n :: stack -> (
-            match List.assoc n vars with
+            match StrMap.find n vars with
             | v -> (
               match v with
               | ARRAY a ->
@@ -879,20 +881,20 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           | stack -> raise (InvalidToken (LIST stack, "at DREF"))
         )
         | FUN n -> (
-          let argc, args, sequence = try List.assoc n funs 
+          let argc, args, sequence = try StrMap.find n funs 
           with Not_found -> raise (InvalidToken (FUN n, "at FUN")) in
           let stack = dref stack argc in
-          let rec assign (args : string list) (stack : token list) (vars : (string * token) list) = (
+          let rec assign (args : string list) (stack : token list) (vars : token StrMap.t) = (
             match args, stack with
             | n :: tl, v :: stack ->
-              assign tl stack ((n, v) :: vars)
+              assign tl stack (StrMap.add n v vars)
             | [], _ -> vars, stack
             | _ -> raise (InvalidFunction "at assign")
           ) in
-          let fn_vars, stack = assign args stack [] in
+          let fn_vars, stack = assign args stack StrMap.empty in
           let res_vars = iterate sequence fn_vars funs in
-          if List.mem_assoc "_RETURN_" res_vars then
-            eval_rpn input vars ((List.assoc "_RETURN_" res_vars) :: stack)
+          if StrMap.mem "_RETURN_" res_vars then
+            eval_rpn input vars ((StrMap.find "_RETURN_" res_vars) :: stack)
           else
             eval_rpn input vars stack
         )
@@ -1520,7 +1522,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
         | FREE -> (
           match stack with
           | NAME n :: stack ->
-            eval_rpn input (List.remove_assoc n vars) stack
+            eval_rpn input (StrMap.remove n vars) stack
           | stack -> raise (InvalidToken (LIST stack, "at FREE"))
         )
         | EXISTS -> (
@@ -1546,7 +1548,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
     | IF :: input -> (
       let expr, input = rpn (LET :: NAME "_EVAL_" :: input) [] [] in
       let vars = eval_rpn expr vars [] in
-      let ret = try List.assoc "_EVAL_" vars
+      let ret = try StrMap.find "_EVAL_" vars
       with Not_found -> raise (InvalidToken (NAME "_EVAL_", "at IF")) in
       match ret with
       | BOOL true -> iterate (strip_else input) vars funs
@@ -1555,26 +1557,25 @@ let interpreter (tokens : token list) (arg_offset : int) = (
     )
     | RETURN :: input -> (
       let expr, _ = rpn (LET :: NAME "_RETURN_" :: input) [] [] in
-      let vars = eval_rpn expr vars [] in
-      vars
+      eval_rpn expr vars []
     )
     | BREAK :: input -> (
-      (("_BREAK_", BREAK) :: (List.remove_assoc "_BREAK_" vars))
+      (StrMap.add "_BREAK_" BREAK (StrMap.remove "_BREAK_" vars))
     )
     | WHILE :: tl -> (
       let cond, stack = rpn (LET :: NAME "_EVAL_" :: tl) [] [] in
       let copy, stack = copy_while stack in
-      let rec loop (vars : (string * token) list) = (
+      let rec loop (vars : token StrMap.t) = (
         let vars = eval_rpn cond vars [] in
-        let ret = try List.assoc "_EVAL_" vars
+        let ret = try StrMap.find "_EVAL_" vars
         with Not_found -> raise (InvalidToken (NAME "_EVAL_", "at WHILE")) in
         match ret with
         | BOOL true ->
           let vars = iterate copy vars funs in
-          if List.mem_assoc "_RETURN_" vars then
+          if StrMap.mem "_RETURN_" vars then
             vars
-          else if List.mem_assoc "_BREAK_" vars then
-            iterate stack (List.remove_assoc "_BREAK_" vars) funs
+          else if StrMap.mem "_BREAK_" vars then
+            iterate stack (StrMap.remove "_BREAK_" vars) funs
           else
             loop vars
         | BOOL false -> iterate stack vars funs
@@ -1588,17 +1589,17 @@ let interpreter (tokens : token list) (arg_offset : int) = (
       let cond, stack = rpn (LET :: NAME "_EVAL_" :: (List.tl stack)) [] [] in
       let term, stack = rpn (List.tl stack) [] [] in
       let copy, stack = copy_for stack in
-      let rec loop (vars : (string * token) list) = (
+      let rec loop (vars : token StrMap.t) = (
         let vars = eval_rpn cond vars [] in
-        let ret = try List.assoc "_EVAL_" vars
+        let ret = try StrMap.find "_EVAL_" vars
         with Not_found -> raise (InvalidToken (NAME "_EVAL_", "at FOR")) in
         match ret with
         | BOOL true ->
           let vars = iterate copy vars funs in
-          if List.mem_assoc "_RETURN_" vars then
+          if StrMap.mem "_RETURN_" vars then
             vars
-          else if List.mem_assoc "_BREAK_" vars then
-            iterate stack (List.remove_assoc "_BREAK_" vars) funs
+          else if StrMap.mem "_BREAK_" vars then
+            iterate stack (StrMap.remove "_BREAK_" vars) funs
           else
             loop (eval_rpn term vars [])
         | BOOL false -> iterate stack vars funs
@@ -1608,10 +1609,10 @@ let interpreter (tokens : token list) (arg_offset : int) = (
     )
     | ENDWHILE :: input
     | ENDIF :: input ->
-      iterate input (List.remove_assoc "_EVAL_" vars) funs
+      iterate input (StrMap.remove "_EVAL_" vars) funs
     | FUN "_DEF_" :: NAME n :: input ->
       let new_fun, input = store_fun input in
-      iterate input vars ((n, new_fun) :: (List.remove_assoc n funs))
+      iterate input vars (StrMap.add n new_fun (StrMap.remove n funs))
     | _ -> (
       let expr, input = rpn input [] [] in
       let vars = eval_rpn expr vars [] in
@@ -1625,7 +1626,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
     Array.sub Sys.argv arg_offset ((Array.length Sys.argv) - arg_offset) 
     |> Array.map (fun e -> STR e)
   ) in
-  iterate tokens [("args",args)] []
+  iterate tokens (StrMap.add "args" args StrMap.empty) StrMap.empty
 )
 
 let () = (
