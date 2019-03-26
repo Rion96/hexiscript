@@ -692,7 +692,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             )
             | hd :: tl ->
               loop tl (hd :: buffer) (index + 1)
-            | stack -> raise (InvalidToken (LIST stack, "at dref"))
+            | [] -> loop [] buffer n
           else
             match buffer with
             | hd :: tl ->
