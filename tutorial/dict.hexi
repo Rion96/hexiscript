@@ -1,0 +1,86 @@
+# dicts are similar to arrays,
+# with the exception that their size can change,
+# and their index can also be a string
+# Syntax: let [VAR] dict [LENGTH]
+
+fun main args
+  let d dict 3
+  for let i 0; i < 10; i++
+    let d[i] i # <- d automatically grows in size
+    print d[i] + " "
+  endfor
+  println ""
+
+  # Using strings as indices allows for some basic structures
+  let person            dict 10
+  let person["name"]    "John"
+  let person["age"]     32
+  let person["parents"] arr  2  # <- arrays are faster, but fixed size!
+  let person["hobbies"] dict 10
+
+  # An array of the keys can be extracted with 'keys'
+  print_arr (keys person)
+
+  # len works on dicts too:
+  println "Length: " + len person
+
+  # strings can be treated like arrays ('arrays.hexi')
+  println person["name"] + " begins with the letter " + person["name"][0]
+
+  let person["parents"][0] "Jack"
+  let person["parents"][1] "Diane"
+
+  # Let's define a function to print the attributes:
+  fun print_person p
+    println "Name:    " + p["name"]
+    println "Age:     " + p["age"]
+    print   "Hobbies: "
+    let l len p["hobbies"]
+    if l = 0
+      print "-"
+    endif
+    for let i 0; i < l; i++
+      print p["hobbies"][i] + " "
+    endfor
+    print  "\nParents: "
+    print_arr p["parents"]
+    println ""
+  endfun
+
+  # Now let's print John's details:
+  print_person person
+
+  # Let's give John some hobbies
+  let h    person["hobbies"] # less typing this way
+  let h[0] "Swimming"
+  let h[1] "Reading"
+  let h[2] "Tennis"
+
+  # Now let's see John's details again:
+  print_person person
+
+  # Time flies when you're having fun!
+  fun birthday p
+    println "Happy Birthday, " + p["name"] + "!\n"
+    p["age"]++
+  endfun
+
+  # John's hobbies changed a little in the past year.
+  let person["hobbies"][0] "Skiing"
+  free person["hobbies"][2] # <- use free to delete keys in dict
+
+  birthday person
+  print_person person
+
+endfun
+
+fun print_arr a
+  let l len a - 1
+  print "{"
+  for let i 0; i < l; i++
+    print a[i] + ", "
+  endfor
+  println a[l] + "}"
+endfun
+
+main(args)

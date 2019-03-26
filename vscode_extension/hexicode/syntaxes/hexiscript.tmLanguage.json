@@ -32,11 +32,11 @@
 			},
 			{
 				"name": "keyword.operator.new",
-				"match": "\\b(arr)\\b"
+				"match": "\\b(arr|dict)\\b"
 			},
 			{
 				"name": "keyword.operator",
-				"match": "(floor|ceil|tonum|tochar|tostr|rand|sinh|cosh|tanh|asin|acos|atan|sqrt|len|abs|exp|log|sin|cos|tan|>>>|>>|<<|~|\\^\\^|\\^|\\!|ln|&&|\\|\\||&|\\||\\+\\+|\\-\\-|\\+|\\-|\\*|\\%|\\/|>=|<=|>|<|=)"
+				"match": "(keys|floor|ceil|tonum|tochar|tostr|rand|sinh|cosh|tanh|asin|acos|atan|sqrt|len|abs|exp|log|sin|cos|tan|>>>|>>|<<|~|\\^\\^|\\^|\\!|ln|&&|\\|\\||&|\\||\\+\\+|\\-\\-|\\+|\\-|\\*|\\%|\\/|>=|<=|>|<|=)"
 			}]
 		},
 		"strings": {

@@ -6,7 +6,15 @@
 
 fun main
   println "1 + 1 = " + add 1 1
+  # Functions can be nested in other functions.
+  # Nested functions are not available outside
+  # of the function they were defined in.
+  fun sub a b; return a - b; endfun
+  println "1 - 1 = " + sub 1 1
 endfun
+
+# Does NOT work out here
+# println "1 - 1 = " + sub 1 1
 
 # Functions can NOT be called before they are defined!
 # Defining a main function and calling it

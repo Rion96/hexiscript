@@ -1,0 +1,100 @@
+# Binary heap implemented using dict
+
+fun main args
+  let bound 1024 # Bound for random numbers
+  let n     16   # Number of elements
+  if len args > 1
+    let n tonum args[1]
+  endif
+  let heap  heap_create n
+  for let i 0; i < n; i++
+    heap_insert heap (rand bound)
+  endfor
+  for let i 0; i < n; i++
+    print heap_poll heap
+    print " "
+  endfor
+  println ""
+endfun
+
+fun nat_order a b
+  if a < b
+    return (-1)
+  endif
+  if a > b
+    return 1
+  endif
+  return 0
+endfun
+
+fun rev_order a b
+  if a < b
+    return 1
+  endif
+  if a > b
+    return (-1)
+  endif
+  return 0
+endfun
+
+fun compare a b; return nat_order a b; endfun
+
+fun sift_down heap index
+  while index * 2 + 1 < heap["size"]
+    let child index * 2 + 1
+    if child + 1 < heap["size"]
+      if compare heap[child] heap[child + 1] > 0
+        child++
+      endif
+    endif
+    if compare heap[index] heap[child] > 0
+      let tmp         heap[index]
+      let heap[index] heap[child]
+      let heap[child] tmp
+      let index       child
+    else
+      break
+    endif
+  endwhile
+endfun
+
+fun sift_up heap index
+  while (index - 1) / 2 >= 0
+    let parent (index - 1) / 2
+    if compare heap[parent] heap[index] > 0
+      let tmp          heap[parent]
+      let heap[parent] heap[index]
+      let heap[index]  tmp
+      let index        parent
+    else
+      break
+    endif
+  endwhile
+endfun
+
+fun heap_create size
+  let heap         dict size
+  let heap["size"] 0
+  return heap
+endfun
+
+fun heap_insert heap elem
+  let index       heap["size"]++
+  let heap[index] elem
+  sift_up heap index
+endfun
+
+fun heap_poll heap
+  if heap["size"] > 0
+    let index   --heap["size"]
+    let elem    heap[0]
+    let heap[0] heap[index]
+    sift_down heap 0
+    return elem
+  else
+    print "Heap is empty!"
+    return 0
+  endif
+endfun
+
+main(args)
