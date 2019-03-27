@@ -2,7 +2,7 @@ module StrMap = Map.Make (String)
 
 type token =
   | NAME of string
-  | FUN of string | ENDFUN
+  | FUN of string | ENDFUN | CONTINUE
   | INT of int | TONUM | DICT | KEYS | ELIF
   | FLOAT of float | DICTIONARY of (string, token) Hashtbl.t
   | BOOL of bool | SCAN_ERR | TONUM_ERR of string
@@ -137,6 +137,7 @@ let rec string_of_token (tok : token) = (
   | DICT          -> "DICT"
   | KEYS          -> "KEYS"
   | ELIF          -> "ELIF"
+  | CONTINUE      -> "CONTINUE"
 )
 
 let tokenizer (stack : char list) = (
@@ -500,6 +501,10 @@ let tokenizer (stack : char list) = (
     | 's' :: 'y' :: 'e' :: 'k' :: [] -> (KEYS :: buffer)
     | 's' :: 'y' :: 'e' :: 'k' :: c :: tl when sep c ->
       main_parser (KEYS :: buffer) (c :: tl)
+    (* continue *)
+    | 'e' :: 'u' :: 'n' :: 'i' :: 't' :: 'n' :: 'o' :: 'c' :: [] -> (CONTINUE :: buffer)    
+    | 'e' :: 'u' :: 'n' :: 'i' :: 't' :: 'n' :: 'o' :: 'c' :: c :: tl when sep c ->
+      main_parser (CONTINUE :: buffer) (c :: tl)
     | '\'' :: tl ->
       let tok, stack = char_token tl in
       main_parser (tok :: buffer) stack
@@ -1648,7 +1653,8 @@ let interpreter (tokens : token list) (arg_offset : int) = (
       | [] -> vars
     ) in  
     match input with
-    | [] -> vars
+    | []
+    | CONTINUE :: _ -> vars
     | SEQ :: input
     | ENDIF :: input
     | NEWLINE :: input -> iterate input vars funs
