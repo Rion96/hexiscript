@@ -1,0 +1,153 @@
+# hexiscript util functions
+if catch UTIL_HEXI # Like #ifndef in C
+let UTIL_HEXI true
+
+fun toint s
+  let n tonum s
+  if catch n
+    return n
+  endif
+  return floor n
+endfun
+
+fun nat_order a b
+  if a > b
+    return 1
+  elif a < b
+    return (-1)
+  else
+    return 0
+  endif
+endfun
+
+fun rev_order a b
+  if a > b
+    return (-1)
+  elif a < b
+    return 1
+  else
+    return 0
+  endif
+endfun
+
+fun compare a b; return nat_order a b; endfun
+
+# Array functions
+fun array_copy a
+  let n   len a
+  let cpy arr n
+  for let i 0; i < n; i++
+    let cpy[i] a[i]
+  endfor
+  return cpy
+endfun
+
+fun array_fill a elem
+  let n len a
+  for let i 0; i < n; i++
+    let a[i] elem
+  endfor
+endfun
+
+fun array_print a
+  let n len a - 1
+  print "{"
+  for let i 0; i < n; i++
+    print tostr a[i] + ", "
+  endfor
+  println tostr a[n] + "}"
+endfun
+
+# Uses function "compare" to determine ordering
+fun array_sort h
+  fun sift_down h n index
+    while index * 2 + 1 < n
+      let child index * 2 + 1
+      if child + 1 < n
+        if compare h[child] h[child + 1] < 0
+          child++
+        endif
+      endif
+      if compare h[index] h[child] < 0
+        let tmp       h[index]
+        let h[index]  h[child]
+        let h[child]  tmp
+        let index     child
+      else
+        break
+      endif
+    endwhile
+  endfun
+  let n len h
+  # Initialize as heap
+  for let i n / 2 - 1; i >= 0; i--
+    sift_down h n i
+  endfor
+  # Poll elements until empty
+  while n > 0
+    let tmp  h[0]
+    let h[0] h[--n]
+    let h[n] tmp
+    sift_down h n 0
+  endwhile
+endfun
+
+# Heap functions
+# Uses function "compare" to determine ordering
+fun heap_create size
+  let heap         dict size
+  let heap["size"] 0
+  return heap
+endfun
+
+fun heap_insert heap elem
+  fun sift_up heap index
+    while (index - 1) / 2 >= 0
+      let parent (index - 1) / 2
+      if compare heap[parent] heap[index] > 0
+        let tmp          heap[parent]
+        let heap[parent] heap[index]
+        let heap[index]  tmp
+        let index        parent
+      else
+        break
+      endif
+    endwhile
+  endfun
+  let index       heap["size"]++
+  let heap[index] elem
+  sift_up heap index
+endfun
+
+fun heap_poll heap
+  fun sift_down heap index
+    while index * 2 + 1 < heap["size"]
+      let child index * 2 + 1
+      if child + 1 < heap["size"]
+        if compare heap[child] heap[child + 1] > 0
+          child++
+        endif
+      endif
+      if compare heap[index] heap[child] > 0
+        let tmp         heap[index]
+        let heap[index] heap[child]
+        let heap[child] tmp
+        let index       child
+      else
+        break
+      endif
+    endwhile
+  endfun
+  if heap["size"] > 0
+    let index   --heap["size"]
+    let elem    heap[0]
+    let heap[0] heap[index]
+    sift_down heap 0
+    return elem
+  else
+    print "Heap is empty!"
+    return 0
+  endif
+endfun
+
+endif # UTIL_HEXI
