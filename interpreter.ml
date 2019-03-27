@@ -615,8 +615,8 @@ let interpreter (tokens : token list) (arg_offset : int) = (
       let rec loop (stack : token list) (cnt : int) = (
         match stack with
         | IF :: stack -> loop stack (cnt + 1)
-        | ELIF :: _ when cnt = 1 -> stack
-        | ELSE :: stack when cnt = 1 -> stack
+        | ELIF  :: stack when cnt = 1 -> (IF :: stack)
+        | ELSE  :: stack when cnt = 1 -> stack
         | ENDIF :: stack when cnt = 1 -> stack
         | ENDIF :: stack -> loop stack (cnt - 1)
         | _ :: stack -> loop stack cnt
@@ -640,8 +640,8 @@ let interpreter (tokens : token list) (arg_offset : int) = (
       let rec store_if (input : token list) (buffer : token list) (cnt : int) = (
         match input with
         | IF :: tl -> store_if tl (IF :: buffer) (cnt + 1)
-        | ELIF :: _ when cnt = 1 -> loop input buffer 1
-        | ELSE :: tl when cnt = 1 -> loop tl buffer 1
+        | ELIF  :: tl when cnt = 1 -> loop tl buffer 1
+        | ELSE  :: tl when cnt = 1 -> loop tl buffer 1
         | ENDIF :: tl when cnt = 1 -> stack
         | ENDIF :: tl -> store_if tl (ENDIF :: buffer) (cnt - 1)
         | hd :: tl -> store_if tl (hd :: buffer) cnt
@@ -1666,15 +1666,6 @@ let interpreter (tokens : token list) (arg_offset : int) = (
       | BOOL true  -> iterate (strip_else input) vars funs
       | BOOL false -> iterate (strip_if input) vars funs
       | eval -> raise (InvalidToken (eval, "at IF"))
-    )
-    | ELIF :: input -> (
-      let expr, input = rpn (LET :: NAME "_EVAL_" :: input) [] [] in
-      let vars = eval_rpn expr vars [] in
-      match StrMap.find "_EVAL_" vars with
-      | exception Not_found -> raise (InvalidToken (NAME "_EVAL_", "at ELIF"))
-      | BOOL true  -> iterate (strip_else input) vars funs
-      | BOOL false -> iterate (strip_if input) vars funs
-      | eval -> raise (InvalidToken (eval, "at ELIF"))
     )
     | RETURN :: input -> (
       let expr, _ = rpn (LET :: NAME "_RETURN_" :: input) [] [] in
