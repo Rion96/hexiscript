@@ -211,8 +211,7 @@ let tokenizer (stack : char list) = (
     | ('A'..'Z' as hd) :: tl
     | ('a'..'z' as hd) :: tl ->
       name_token ((String.make 1 hd) ^ buffer) tl
-    | _ :: stack -> ERROR, stack
-    | [] -> ERROR, []
+    | stack -> ERROR, stack
   ) in
   let rec main_parser (buffer : token list) = (
     function
