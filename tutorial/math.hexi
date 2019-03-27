@@ -2,36 +2,59 @@
 
 fun main
   println "---Numbers---"
-  println 10.0        # float 10
-  println 10.         # float 10
-  println 10          # int 10
-  println 0b10        # Binary 10 -> 2
-  println 0o10        # Octal 10  -> 8
-  println 0x10        # Hex 10    -> 16
+  println "10.0 = " + 10.0        # float 10
+  println "10.  = " + 10.         # float 10
+  println "10   = " + 10          # int 10
+  println "0b10 = " + 0b10        # Binary 10 -> 2
+  println "0o10 = " + 0o10        # Octal 10  -> 8
+  println "0x10 = " + 0x10        # Hex 10    -> 16
   println "---Binary operations---"
+  print  "0b10 | 0b01 = "
   println 0b10 | 0b01 # -> 0b11 -> 3
+  print  "0b10 & 0b11 = "
   println 0b10 & 0b11 # -> 0b10 -> 2
+  print  "0b10 ^ 0b11 = "
   println 0b10 ^ 0b11 # -> 0b01 -> 1
+  print  "0b01 << 1   = "
   println 0b01 << 1   # -> 0b10 -> 2
+  print  "0b10 >> 1   = "
   println 0b10 >> 1   # -> 0b01 -> 1
+  print  "(-2) >> 1   = "
   println (-2) >> 1   # -> -1
+  print  "(-2) >>> 1  = "
   println (-2) >>> 1  # -> 4611686018427387903
+  print  "~0b10       = "
   println ~0b10       # -> -3 (one's complement/inverted)
   println "---Math operations---"
+  print  "sqrt 4      = "
   println sqrt 4      # -> 2
+  print  "asin 0      = "
   println asin 0      # -> 0
+  print  "sin 0       = "
   println sin 0       # -> 0
+  print  "acos 0      = "
   println acos 0      # -> 1.57...
+  print  "cos 0       = "
   println cos 0       # -> 1
+  print  "atan 1      = "
   println atan 1      # -> 0.78...
+  print  "tan 1       = "
   println tan 1       # -> 1.55...
+  print  "abs (-1)    = "
   println abs (-1)    # -> 1
+  print  "exp 1       = "
   println exp 1       # -> 2.71...
+  print  "log 10      = "
   println log 10      # -> 1
+  print  "ln (exp 1)  = "
   println ln (exp 1)  # -> 1
+  print  "sinh 1      = "
   println sinh 1      # -> 1.17...
+  print  "tanh 1      = "
   println tanh 1      # -> 0.76...
+  print  "cosh 1      = "
   println cosh 1      # -> 1.54...
+  print  "2 ^^ .5     = "
   println 2 ^^ .5     # -> sqrt(2)
 endfun
 

@@ -24,6 +24,8 @@ println "1.5 + 1 = " + (tonum "1.5" + 1)
 println "ASCII for A is: " + tonum 'A'
 
 # or convert to string
+# (though technically tostr is not necessary here,
+#  as print/println does casts automatically.)
 println "This sentence is " + tostr (!true)
 println tostr (7.5 / 2)
 # Allows us to concatenate numbers:

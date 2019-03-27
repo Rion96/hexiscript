@@ -11,7 +11,7 @@ fun main args
   endfor
   println ""
 
-  # Using strings as indices allows for some basic structures
+  # Using strings as indices allows for some basic structure
   let person            dict 10
   let person["name"]    "John"
   let person["age"]     32
@@ -25,7 +25,7 @@ fun main args
   println "Length: " + len person
 
   # strings can be treated like arrays ('arrays.hexi')
-  println person["name"] + " begins with the letter " + person["name"][0]
+  println person["name"] + " begins with the letter " + person["name"][0] + "\n"
 
   let person["parents"][0] "Jack"
   let person["parents"][1] "Diane"
@@ -42,7 +42,7 @@ fun main args
     for let i 0; i < l; i++
       print p["hobbies"][i] + " "
     endfor
-    print  "\nParents: "
+    print "\nParents: "
     print_arr p["parents"]
     println ""
   endfun
@@ -56,6 +56,8 @@ fun main args
   let h[1] "Reading"
   let h[2] "Tennis"
 
+  free h # <- You can use free to get rid of variables you don't need anymore
+
   # Now let's see John's details again:
   print_person person
 
@@ -66,10 +68,10 @@ fun main args
   endfun
 
   # John's hobbies changed a little in the past year.
-  let person["hobbies"][0] "Skiing"
-  free person["hobbies"][2] # <- use free to delete keys in dict
+  let  person["hobbies"][0] "Skiing"
+  free person["hobbies"][2] # <- free can also be used to delete keys in a dict
 
-  birthday person
+  birthday     person
   print_person person
 
 endfun

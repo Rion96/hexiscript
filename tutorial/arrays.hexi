@@ -29,14 +29,12 @@ let x[2] len x[1]
 let x[2] "Your name has " + x[2] + " characters"
 
 # Let's print out our array!
+let l len x - 1
 print "{"
-for let i 0; i < len x; i++
-  print x[i]
-  if i < len x - 1
-    print ", "
-  endif
+for let i 0; i < l; i++
+  print x[i] + ", "
 endfor
-println "}"
+println x[l] + "}"
 
 # Multidimensional arrays work too.
 # They need to be initialized manually, however:

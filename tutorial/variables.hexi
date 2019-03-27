@@ -2,18 +2,18 @@
 # The type of a variable is inferred on definition.
 # Syntax: let [VAR] [VALUE]
 
-let x 1 # Now an int
+let x 1 # <- now an int
 println "1 + 1 = " + (x + x)
 
 # x can change its type:
-let x "1 + 1 = " + (x + x) # Now a string
+let x "1 + 1 = " + (x + x) # <- now a string
 println x
 
 # For incrementing/decrementing,
 # you may use prefix or postfix ++/--
 let x 1
-println "1 + 1 = " + ++x  # prints 2, x now 2
-println "1 + 1 = " + x--  # prints 2, x now 1
+println "1 + 1 = " + ++x  # <- prints 2, x now 2
+println "1 + 1 = " + x--  # <- prints 2, x now 1
 
 # Supported types:
 # str   -> string
@@ -29,15 +29,15 @@ let f    0.5; println f
 let b   true; println b
 
 # While OCaml is garbage collected, and variables
-# (except potentially arrays, if passed between functions) 
+# (except potentially arrays and dicts, if passed between functions) 
 # get deleted beyond their function scope, you might want to use 'free' 
 # to delete variables you don't need anymore, especially if you plan
 # to stay in a scope for long or you allocated a lot of large arrays.
 
 println x
-println catch x # 'catch' returns false if defined
+println catch x # 'catch' returns false if variable defined
 free x
 # Would now throw an error:
 # println x
-println catch x # 'catch' returns true if undefined
+println catch x # 'catch' returns true if variable undefined
 

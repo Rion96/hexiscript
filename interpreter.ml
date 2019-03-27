@@ -3,7 +3,7 @@ module StrMap = Map.Make (String)
 type token =
   | NAME of string
   | FUN of string | ENDFUN
-  | INT of int | TONUM | DICT | KEYS
+  | INT of int | TONUM | DICT | KEYS | ELIF
   | FLOAT of float | DICTIONARY of (string, token) Hashtbl.t
   | BOOL of bool | SCAN_ERR | TONUM_ERR of string
   | CHAR of char | TOCHAR | NOT_FOUND of string | EXISTS
@@ -136,6 +136,7 @@ let rec string_of_token (tok : token) = (
   | DICTIONARY _  -> "DICTIONARY"
   | DICT          -> "DICT"
   | KEYS          -> "KEYS"
+  | ELIF          -> "ELIF"
 )
 
 let tokenizer (stack : char list) = (
@@ -311,6 +312,10 @@ let tokenizer (stack : char list) = (
     | 'e' :: 's' :: 'l' :: 'a' :: 'f' :: [] -> (BOOL false :: buffer)
     | 'e' :: 's' :: 'l' :: 'a' :: 'f' :: c :: tl when sep c ->
       main_parser (BOOL false :: buffer) (c :: tl)
+    (* elif *)
+    | 'f' :: 'i' :: 'l' :: 'e' :: [] -> (ELIF :: buffer)
+    | 'f' :: 'i' :: 'l' :: 'e' :: c :: tl when sep c ->
+      main_parser (ELIF :: buffer) (c :: tl)
     (* endif *)
     | 'f' :: 'i' :: 'd' :: 'n' :: 'e' :: [] -> (ENDIF :: buffer)
     | 'f' :: 'i' :: 'd' :: 'n' :: 'e' :: c :: tl when sep c ->
@@ -610,6 +615,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
       let rec loop (stack : token list) (cnt : int) = (
         match stack with
         | IF :: stack -> loop stack (cnt + 1)
+        | ELIF :: _ when cnt = 1 -> stack
         | ELSE :: stack when cnt = 1 -> stack
         | ENDIF :: stack when cnt = 1 -> stack
         | ENDIF :: stack -> loop stack (cnt - 1)
@@ -634,6 +640,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
       let rec store_if (input : token list) (buffer : token list) (cnt : int) = (
         match input with
         | IF :: tl -> store_if tl (IF :: buffer) (cnt + 1)
+        | ELIF :: _ when cnt = 1 -> loop input buffer 1
         | ELSE :: tl when cnt = 1 -> loop tl buffer 1
         | ENDIF :: tl when cnt = 1 -> stack
         | ENDIF :: tl -> store_if tl (ENDIF :: buffer) (cnt - 1)
@@ -1064,6 +1071,10 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           | CHAR c :: INT i :: stack ->
             let c = i + Char.code c in
             eval_rpn input vars (INT c :: stack)
+          | BOOL b :: e :: stack ->
+            eval_rpn (PLUS :: input) vars (STR (string_of_bool b) :: e :: stack)
+          | e :: BOOL b :: stack ->
+            eval_rpn (PLUS :: input) vars (e :: STR (string_of_bool b) :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at PLUS"))
         )
         | MINUS -> (
@@ -1639,7 +1650,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
     match input with
     | [] -> vars
     | SEQ :: input
+    | ENDIF :: input
     | NEWLINE :: input -> iterate input vars funs
+    | BREAK :: input -> StrMap.add "_BREAK_" BREAK (StrMap.remove "_BREAK_" vars)
     | INCLUDE :: STR n :: input ->
       let file = try open_in n
       with e -> raise (InvalidFilename n) in
@@ -1648,28 +1661,32 @@ let interpreter (tokens : token list) (arg_offset : int) = (
     | IF :: input -> (
       let expr, input = rpn (LET :: NAME "_EVAL_" :: input) [] [] in
       let vars = eval_rpn expr vars [] in
-      let ret = try StrMap.find "_EVAL_" vars
-      with Not_found -> raise (InvalidToken (NAME "_EVAL_", "at IF")) in
-      match ret with
-      | BOOL true -> iterate (strip_else input) vars funs
+      match StrMap.find "_EVAL_" vars with
+      | exception Not_found -> raise (InvalidToken (NAME "_EVAL_", "at IF"))
+      | BOOL true  -> iterate (strip_else input) vars funs
       | BOOL false -> iterate (strip_if input) vars funs
       | eval -> raise (InvalidToken (eval, "at IF"))
+    )
+    | ELIF :: input -> (
+      let expr, input = rpn (LET :: NAME "_EVAL_" :: input) [] [] in
+      let vars = eval_rpn expr vars [] in
+      match StrMap.find "_EVAL_" vars with
+      | exception Not_found -> raise (InvalidToken (NAME "_EVAL_", "at ELIF"))
+      | BOOL true  -> iterate (strip_else input) vars funs
+      | BOOL false -> iterate (strip_if input) vars funs
+      | eval -> raise (InvalidToken (eval, "at ELIF"))
     )
     | RETURN :: input -> (
       let expr, _ = rpn (LET :: NAME "_RETURN_" :: input) [] [] in
       eval_rpn expr vars []
-    )
-    | BREAK :: input -> (
-      (StrMap.add "_BREAK_" BREAK (StrMap.remove "_BREAK_" vars))
     )
     | WHILE :: tl -> (
       let cond, stack = rpn (LET :: NAME "_EVAL_" :: tl) [] [] in
       let copy, stack = copy_while stack in
       let rec loop (vars : token StrMap.t) = (
         let vars = eval_rpn cond vars [] in
-        let ret = try StrMap.find "_EVAL_" vars
-        with Not_found -> raise (InvalidToken (NAME "_EVAL_", "at WHILE")) in
-        match ret with
+        match StrMap.find "_EVAL_" vars with
+        | exception Not_found -> raise (InvalidToken (NAME "_EVAL_", "at WHILE"))
         | BOOL true ->
           let vars = iterate copy vars funs in
           if StrMap.mem "_RETURN_" vars then
@@ -1691,9 +1708,8 @@ let interpreter (tokens : token list) (arg_offset : int) = (
       let copy, stack = copy_for stack in
       let rec loop (vars : token StrMap.t) = (
         let vars = eval_rpn cond vars [] in
-        let ret = try StrMap.find "_EVAL_" vars
-        with Not_found -> raise (InvalidToken (NAME "_EVAL_", "at FOR")) in
-        match ret with
+        match StrMap.find "_EVAL_" vars with
+        | exception Not_found -> raise (InvalidToken (NAME "_EVAL_", "at FOR"))
         | BOOL true ->
           let vars = iterate copy vars funs in
           if StrMap.mem "_RETURN_" vars then
@@ -1707,9 +1723,6 @@ let interpreter (tokens : token list) (arg_offset : int) = (
       ) in
       loop vars
     )
-    | ENDWHILE :: input
-    | ENDIF :: input ->
-      iterate input (StrMap.remove "_EVAL_" vars) funs
     | FUN "_DEF_" :: NAME n :: input ->
       let new_fun, input = store_fun input in
       iterate input vars (StrMap.add n new_fun (StrMap.remove n funs))
