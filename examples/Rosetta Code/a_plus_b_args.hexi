@@ -1,0 +1,9 @@
+# A+B with args
+
+fun main args
+  let a tonum args[1]
+  let b tonum args[2]
+  println a + b
+endfun
+
+main args

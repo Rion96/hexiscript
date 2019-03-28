@@ -1,0 +1,9 @@
+let a 1
+let b 0
+# b + 0. turns denominator into float
+# number automatically casts to float
+if tostr (a / (b + 0.)) = "inf"
+  println "Divide by Zero"
+else
+  println a / b
+endif

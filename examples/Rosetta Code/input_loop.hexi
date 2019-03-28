@@ -1,0 +1,6 @@
+fun read_stream stream
+  while !(catch (let c read char stream))
+    print c
+  endwhile
+  close stream
+endfun

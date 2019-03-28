@@ -1,0 +1,14 @@
+# Concatenate two arrays
+
+fun concat a b
+  let l len a + len b
+  let c arr l
+  for let i 0; i < len a; i++
+    let c[i] a[i]
+  endfor
+  for let i len a; i < l; i++
+    let c[i] b[i - len a]
+  endfor
+  return c
+endfun
+

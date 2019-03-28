@@ -1,0 +1,22 @@
+# recursive
+
+fun fac n
+  if n <= 0
+    return 1
+  else 
+    return n * fac (n - 1)
+  endif
+endfun
+
+println fac 5
+
+# iterative
+fun fac n
+  let acc 1
+  while n > 0
+    let acc (acc * n--)
+  endwhile
+  return acc
+endfun
+
+println fac 5

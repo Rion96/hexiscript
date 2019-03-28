@@ -1,0 +1,18 @@
+fun compare a b
+  let min len a
+  if len b < len a; let min len b; endif
+  for let i 0; i < min; i++
+    if a[i] != b[i]; return a[i] - b[i]; endif
+  endfor
+  return len a - len b
+endfun
+
+let a "Orange"
+let b "Apple"
+if a = b
+  println a + " equal to " + b
+elif compare a b < 0
+  println a + " less than " + b
+else
+  println a + " greater than " + b
+endif
