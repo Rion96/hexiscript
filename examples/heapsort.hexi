@@ -3,7 +3,7 @@
 fun main
   let bound 1024 # Bound for random numbers
   print "How many elements? "
-  scan int n
+  let n scan int
   if catch n
     println "Please enter a valid integer!"
     return 1

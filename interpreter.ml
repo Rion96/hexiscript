@@ -580,7 +580,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             | NOT | FLOOR | CEIL | TONUM | OPENOUT | CATCH | SQRT | ENV
             | POW | PREFIX_DECR | PREFIX_INCR | B_NOT | ABS | KEYS| CD
             | TOSTR | TOCHAR | LOG | LN | ASIN | ACOS | ATAN | CWD
-            | SINH | COSH | TANH | SIN | COS | TAN | EXP -> 1
+            | SINH | COSH | TANH | SIN | COS | TAN | EXP | SCAN -> 1
             | MULT | DIV | MOD -> 2
             | PLUS | MINUS -> 3
             | B_SHIFTL | B_ASHIFTR | B_LSHIFTR -> 4
@@ -592,7 +592,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             | AND -> 10
             | OR -> 11
             | LET | PRINT | PRINTLN | RETURN
-            | SCAN | WRITE | THROW | FREE -> 12
+            | WRITE | THROW | FREE -> 12
             | tok -> raise (InvalidToken (tok, "at higher_order"))
           ) in
           let op, stack_op = get_lvl op, get_lvl stack_op in
@@ -805,45 +805,15 @@ let interpreter (tokens : token list) (arg_offset : int) = (
         )
         | SCAN -> (
           match stack with
-          | NAME n :: NAME t :: stack -> (
-            match t with
-            | "int" ->
-              let v = try INT (read_int ()) with _ -> SCAN_ERR in
-              (eval_rpn [@tailcall]) input (StrMap.add n v (StrMap.remove n vars)) stack
-            | "str" ->
-              let v = try STR (read_line ()) with _ -> SCAN_ERR in
-              (eval_rpn [@tailcall]) input (StrMap.add n v (StrMap.remove n vars)) stack
-            | "float" ->
-              let v = try FLOAT (Scanf.scanf "%f" (fun v -> v)) with _ -> SCAN_ERR in
-              (eval_rpn [@tailcall]) input (StrMap.add n v (StrMap.remove n vars)) stack
-            | _ -> raise (InvalidToken (NAME t, "at SCAN"))
-          )
-          | INT i :: ARRAY a :: NAME t :: stack -> (
-            match t with
-            | "int" ->
-              let v = try INT (read_int ()) with _ -> SCAN_ERR in
-              a.(i) <- v; eval_rpn input vars stack
-            | "str" ->
-              let v = try STR (read_line ()) with _ -> SCAN_ERR in
-              a.(i) <- v; eval_rpn input vars stack
-            | "float" ->
-              let v = try FLOAT (Scanf.scanf "%f" (fun v -> v)) with _ -> SCAN_ERR in
-              a.(i) <- v; eval_rpn input vars stack
-            | _ -> raise (InvalidToken (NAME t, "at SCAN"))
-          )
-          | STR s :: DICTIONARY d :: NAME t :: stack -> (
-            match t with
-            | "int" ->
-              let v = try INT (read_int ()) with _ -> SCAN_ERR in
-              Hashtbl.replace d s v; eval_rpn input vars stack
-            | "str" ->
-              let v = try STR (read_line ()) with _ -> SCAN_ERR in
-              Hashtbl.replace d s v; eval_rpn input vars stack
-            | "float" ->
-              let v = try FLOAT (Scanf.scanf "%f" (fun v -> v)) with _ -> SCAN_ERR in
-              Hashtbl.replace d s v; eval_rpn input vars stack
-            | _ -> raise (InvalidToken (NAME t, "at SCAN"))
-          )
+          | NAME "int" :: stack ->
+            (try INT (read_int ()) with _ -> SCAN_ERR) :: stack
+            |> eval_rpn input vars
+          | NAME "str" :: stack ->
+            (try STR (read_line ()) with _ -> SCAN_ERR) :: stack
+            |> eval_rpn input vars
+          | NAME "float" :: stack ->
+            (try Scanf.scanf "%f" (fun f -> FLOAT f) with _ -> SCAN_ERR) :: stack
+            |> eval_rpn input vars
           | stack -> raise (InvalidToken (LIST stack, "at SCAN"))
         )
         | PREFIX_INCR -> (
@@ -962,29 +932,24 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           let stack = dref stack 1 in
           match stack with
           | first :: STR a :: DICTIONARY d :: stack -> (
-            match Hashtbl.find d a with
-            | exception Not_found -> eval_rpn input vars (first :: UNDEFINED a :: stack)
-            | STR s -> (
-              match first with
-              | INT i -> eval_rpn input vars (CHAR s.[i] :: stack)
-              | tok -> raise (InvalidToken (tok, "at DREF (dict)"))
-            )
-            | DICTIONARY d -> (
-              match first with
-              | STR s -> eval_rpn input vars (STR s :: DICTIONARY d :: stack)
-              | INT i -> eval_rpn input vars (STR (string_of_int i) :: DICTIONARY d :: stack)
-              | tok -> raise (InvalidToken (tok, "at DREF (dict)"))
-            )
-            | elem -> eval_rpn input vars (first :: elem :: stack)
-          )
-          | INT i :: INT j :: ARRAY a :: stack -> (
-            let elem = a.(j) in
-            match elem with
-            | ARRAY _ ->
-              eval_rpn input vars (INT i :: elem :: stack)
-            | STR s ->
+            match Hashtbl.find d a, first with
+            | exception Not_found ->
+              eval_rpn input vars (first :: UNDEFINED a :: stack)
+            | STR s, INT i ->
               eval_rpn input vars (CHAR s.[i] :: stack)
-            | tok -> raise (InvalidToken (tok, "at DREF (array)"))
+            | DICTIONARY d, STR s ->
+              eval_rpn input vars (STR s :: DICTIONARY d :: stack)
+            | DICTIONARY d, INT i -> eval_rpn input vars (STR (string_of_int i) :: DICTIONARY d :: stack)
+            | elem, first-> eval_rpn input vars (first :: elem :: stack)
+          )
+          | first :: INT i :: ARRAY a :: stack -> (
+            match a.(i), first with
+            | STR s, INT i ->
+              eval_rpn input vars (CHAR s.[i] :: stack)
+            | DICTIONARY d, STR s ->
+              eval_rpn input vars (STR s :: DICTIONARY d :: stack)
+            | DICTIONARY d, INT i -> eval_rpn input vars (STR (string_of_int i) :: DICTIONARY d :: stack)
+            | elem, first -> eval_rpn input vars (first :: elem :: stack)
           )
           | INT i :: NAME n :: stack -> (
             match StrMap.find n vars with

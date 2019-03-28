@@ -15,7 +15,7 @@ let x[0] "Hello"
 
 # scan can write to arrays too.
 print "What is your name? "
-scan str x[1]
+let x[1] scan str
 
 # Strings can also be treated as arrays.
 println "The first character of \"Hello\" is " + "Hello"[0]

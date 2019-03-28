@@ -1,5 +1,5 @@
-# scan provides basic scanning functionality.
-# Syntax: scan [TYPE] [VAR]
+# scan can be used to read from stdin:
+# Syntax: scan [TYPE]
 
 # Types usually needn't be specified in hexiscript.
 # scan, however, is an exception to this.
@@ -10,5 +10,5 @@
 # float
 
 print "What is your name? "
-scan str name
+let name scan str
 println "Hello " + name + "!"

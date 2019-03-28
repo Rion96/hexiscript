@@ -2,7 +2,7 @@
 
 fun main
   print "Prime numbers up to? "
-  scan int n
+  let n scan int
   if catch n
     println "Please enter an integer!"
     return 1

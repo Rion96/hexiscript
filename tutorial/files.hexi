@@ -61,7 +61,7 @@ endfun
 
 fun pause
   print "Press any key to continue..."
-  scan str x
+  scan str
 endfun
 
 fun cleanup
