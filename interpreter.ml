@@ -1,7 +1,7 @@
 module StrMap = Map.Make (String)
 
 type token =
-  | NAME of string
+  | NAME of string | CD | CWD | ENV
   | FUN of string | ENDFUN | CONTINUE
   | INT of int | TONUM | DICT | KEYS | ELIF
   | FLOAT of float | DICTIONARY of (string, token) Hashtbl.t
@@ -138,6 +138,9 @@ let rec string_of_token (tok : token) = (
   | KEYS          -> "KEYS"
   | ELIF          -> "ELIF"
   | CONTINUE      -> "CONTINUE"
+  | CD            -> "CD"
+  | CWD           -> "CWD"
+  | ENV           -> "ENV"
 )
 
 let tokenizer (stack : char list) = (
@@ -504,6 +507,18 @@ let tokenizer (stack : char list) = (
     | 'e' :: 'u' :: 'n' :: 'i' :: 't' :: 'n' :: 'o' :: 'c' :: [] -> (CONTINUE :: buffer)    
     | 'e' :: 'u' :: 'n' :: 'i' :: 't' :: 'n' :: 'o' :: 'c' :: c :: tl when sep c ->
       main_parser (CONTINUE :: buffer) (c :: tl)
+    (* cd *)
+    | 'd' :: 'c' :: [] -> (CD :: buffer)
+    | 'd' :: 'c' :: c :: tl when sep c ->
+      main_parser (CD :: buffer) (c :: tl)
+    (* cwd *)
+    | 'd' :: 'w' :: 'c' :: [] -> (CWD :: buffer)
+    | 'd' :: 'w' :: 'c' :: c :: tl when sep c ->
+      main_parser (CWD :: buffer) (c :: tl)
+    (* env *)
+    | 'v' :: 'n' :: 'e' :: [] -> (ENV :: buffer)
+    | 'v' :: 'n' :: 'e' :: c :: tl when sep c ->
+      main_parser (ENV :: buffer) (c :: tl)
     | '\'' :: tl ->
       let tok, stack = char_token tl in
       main_parser (tok :: buffer) stack
@@ -534,6 +549,23 @@ let char_stack (f : in_channel) = (
   loop []
 )
 
+let find_file (name : string) = (
+  let rec iter = (
+    function
+    | hd :: tl -> (
+      match open_in (hd ^ "/" ^ name) with
+      | exception _ -> iter tl
+      | file -> file
+    )
+    | [] -> raise (InvalidFilename name)
+  ) in
+  try open_in name
+  with _ ->
+  match Sys.getenv_opt "PATH" with
+  | Some s -> String.split_on_char ':' s |> iter
+  | None   -> raise (InvalidFilename name)
+)
+
 let interpreter (tokens : token list) (arg_offset : int) = (
   let rec iterate (input : token list)
                   (vars : token StrMap.t)
@@ -545,9 +577,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             match op with
             | FUN _ | POSTFIX_DECR | POSTFIX_INCR -> 0
             | LEN |  RAND | UNOP_MINUS | OPENIN | CLOSE | READ | EXISTS
-            | NOT | FLOOR | CEIL | TONUM | OPENOUT | CATCH | SQRT
-            | POW | PREFIX_DECR | PREFIX_INCR | B_NOT | ABS | KEYS
-            | TOSTR | TOCHAR | LOG | LN | ASIN | ACOS | ATAN
+            | NOT | FLOOR | CEIL | TONUM | OPENOUT | CATCH | SQRT | ENV
+            | POW | PREFIX_DECR | PREFIX_INCR | B_NOT | ABS | KEYS| CD
+            | TOSTR | TOCHAR | LOG | LN | ASIN | ACOS | ATAN | CWD
             | SINH | COSH | TANH | SIN | COS | TAN | EXP -> 1
             | MULT | DIV | MOD -> 2
             | PLUS | MINUS -> 3
@@ -1647,6 +1679,29 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn input vars (ARRAY keys :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at KEYS"))
         )
+        | CD -> (
+          let stack = dref stack 1 in
+          match stack with
+          | STR s :: stack -> (
+            match Sys.chdir s with
+            | exception _ -> eval_rpn input vars (NOT_FOUND s :: stack)
+            | () -> eval_rpn input vars stack
+          )
+          | stack -> raise (InvalidToken (LIST stack, "at CD"))
+        )
+        | CWD -> (
+          eval_rpn input vars (STR (Sys.getcwd ()) :: stack)
+        )
+        | ENV -> (
+          let stack = dref stack 1 in
+          match stack with
+          | STR s :: stack -> (
+            match Sys.getenv_opt s with
+            | Some s -> eval_rpn input vars (STR s :: stack)
+            | None -> eval_rpn input vars (NOT_FOUND s :: stack)
+          )
+          | stack -> raise (InvalidToken (LIST stack, "at ENV"))
+        )
         | op -> raise (InvalidToken (op, "at eval_rpn"))
       )
       | [] -> vars
@@ -1659,9 +1714,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
     | NEWLINE :: input -> iterate input vars funs
     | BREAK :: input -> StrMap.add "_BREAK_" BREAK (StrMap.remove "_BREAK_" vars)
     | INCLUDE :: STR n :: input ->
-      let file = try open_in n
-      with e -> raise (InvalidFilename n) in
-      let tokens = char_stack file |> tokenizer in
+      let tokens = find_file n |> char_stack |> tokenizer in
       iterate (tokens @ input) vars funs
     | IF :: input -> (
       let expr, input = rpn (LET :: NAME "_EVAL_" :: input) [] [] in
