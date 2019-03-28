@@ -1650,7 +1650,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           | STR s :: stack -> (
             match Sys.chdir s with
             | exception _ -> eval_rpn input vars (NOT_FOUND s :: stack)
-            | () -> eval_rpn input vars stack
+            | ()  -> eval_rpn input vars (STR (Sys.getcwd ()) :: stack)
           )
           | stack -> raise (InvalidToken (LIST stack, "at CD"))
         )
