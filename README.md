@@ -27,4 +27,4 @@ A very rough extension to provide some basic syntax highlighting for .hexi files
 1. `|`
 1. `&&`
 1. `||`
-1. `let, print, println, return, write, throw, free`
+1. `let, print, println, return, write, throw, free, run`

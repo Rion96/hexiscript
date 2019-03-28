@@ -2,7 +2,7 @@ module StrMap = Map.Make (String)
 
 type token =
   | NAME of string | CD | CWD | ENV
-  | FUN of string | ENDFUN | CONTINUE
+  | FUN of string | ENDFUN | CONTINUE | RUN
   | INT of int | TONUM | DICT | KEYS | ELIF
   | FLOAT of float | DICTIONARY of (string, token) Hashtbl.t
   | BOOL of bool | SCAN_ERR | TONUM_ERR of string
@@ -141,6 +141,7 @@ let rec string_of_token (tok : token) = (
   | CD            -> "CD"
   | CWD           -> "CWD"
   | ENV           -> "ENV"
+  | RUN           -> "RUN"
 )
 
 let tokenizer (stack : char list) = (
@@ -519,6 +520,10 @@ let tokenizer (stack : char list) = (
     | 'v' :: 'n' :: 'e' :: [] -> (ENV :: buffer)
     | 'v' :: 'n' :: 'e' :: c :: tl when sep c ->
       main_parser (ENV :: buffer) (c :: tl)
+    (* run *)
+    | 'n' :: 'u' :: 'r' :: [] -> (RUN :: buffer)
+    | 'n' :: 'u' :: 'r' :: c :: tl when sep c ->
+      main_parser (RUN :: buffer) (c :: tl)
     | '\'' :: tl ->
       let tok, stack = char_token tl in
       main_parser (tok :: buffer) stack
@@ -592,7 +597,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             | AND -> 10
             | OR -> 11
             | LET | PRINT | PRINTLN | RETURN
-            | WRITE | THROW | FREE -> 12
+            | WRITE | THROW | FREE | RUN -> 12
             | tok -> raise (InvalidToken (tok, "at higher_order"))
           ) in
           let op, stack_op = get_lvl op, get_lvl stack_op in
@@ -1663,9 +1668,18 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           | STR s :: stack -> (
             match Sys.getenv_opt s with
             | Some s -> eval_rpn input vars (STR s :: stack)
-            | None -> eval_rpn input vars (NOT_FOUND s :: stack)
+            | None   -> eval_rpn input vars (NOT_FOUND s :: stack)
           )
           | stack -> raise (InvalidToken (LIST stack, "at ENV"))
+        )
+        | RUN -> (
+          let stack = dref stack 1 in
+          match stack with
+          | STR s :: stack -> (
+            INT (Sys.command s) :: stack
+            |> eval_rpn input vars
+          )
+          | stack -> raise (InvalidToken (LIST stack, "at RUN"))
         )
         | op -> raise (InvalidToken (op, "at eval_rpn"))
       )
