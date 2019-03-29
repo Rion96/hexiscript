@@ -1,12 +1,10 @@
 fun greatest a
   let l len a
-  if l > 0
-    let max a[0]
-    for let i 1; i < l; i++
-      if max < a[i]
-        let max a[i]
-      endif
-    endfor
-    return max
-  endif
+  let max a[0]
+  for let i 1; i < l; i++
+    if max < a[i]
+      let max a[i]
+    endif
+  endfor
+  return max
 endfun

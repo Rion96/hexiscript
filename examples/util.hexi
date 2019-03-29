@@ -10,6 +10,39 @@ fun toint s
   return floor n
 endfun
 
+fun string_filter s elem
+  let out ""
+  for let i 0; i < len s; i++
+    if s[i] != elem
+      let out (out + s[i])
+    endif
+  endfor
+  return out
+endfun
+
+fun string_trim s
+  let out ""
+  for let i 0; i < len s - 1; i++
+    if s[i] != ' '; break; endif
+  endfor
+  for let j len s - 1; j >= 0; j--
+    if s[j] != ' '; break; endif
+  endfor
+  for let k i; k <= j; k++
+    let out (out + s[k])
+  endfor
+  return out
+endfun
+
+fun string_compare a b
+  let min len a
+  if len b < len a; let min len b; endif
+  for let i 0; i < min; i++
+    if a[i] != b[i]; return a[i] - b[i]; endif
+  endfor
+  return len a - len b
+endfun
+
 fun string_split s delim
   let ret    dict 32
   let l      len s
@@ -49,7 +82,27 @@ endfun
 
 fun compare a b; return nat_order a b; endfun
 
+fun dict_copy d
+  let n   len d
+  let k   keys d
+  let cpy dict n
+  for let i 0; i < n; i++
+    let cpy[k[i]] d[k[i]]
+  endfor
+  return cpy
+endfun
+
+fun dict_print d
+  let n len d
+  let k keys d
+  for let i 0; i < n; i++
+    print k[i] + "\t: "
+    println d[k[i]]
+  endfor
+endfun
+
 # Array functions
+# Most array functions work with dicts as well
 fun array_copy a
   let n   len a
   let cpy arr n
@@ -57,6 +110,18 @@ fun array_copy a
     let cpy[i] a[i]
   endfor
   return cpy
+endfun
+
+fun array_filter a elem
+  let n     len a
+  let out   dict n
+  let index 0
+  for let i 0; i < n; i++
+    if a[i] != elem
+      let out[index++] a[i]
+    endif
+  endfor
+  return array_copy out
 endfun
 
 fun array_fill a elem
