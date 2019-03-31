@@ -1,0 +1,7 @@
+let a scan int
+let b scan int
+println "a + b = " + (a + b)
+println "a - b = " + (a - b)
+println "a * b = " + (a * b)
+println "a / b = " + (a / b)
+println "a % b = " + (a % b)

@@ -35,9 +35,11 @@ let b   true; println b
 # to stay in a scope for long or you allocated a lot of large arrays.
 
 println x
+print "x undefined? "
 println catch x # 'catch' returns false if variable defined
 free x
 # Would now throw an error:
 # println x
+print "x undefined? "
 println catch x # 'catch' returns true if variable undefined
 

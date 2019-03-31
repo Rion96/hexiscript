@@ -217,332 +217,332 @@ let tokenizer (stack : char list) = (
       name_token ((String.make 1 hd) ^ buffer) tl
     | stack -> ERROR, stack
   ) in
-  let rec main_parser (buffer : token list) = (
+  let rec iterate (buffer : token list) = (
     function
     | ';' :: stack ->
-      main_parser (SEQ :: buffer) stack
+      iterate (SEQ :: buffer) stack
     | '\n' :: stack ->
-      main_parser (NEWLINE :: buffer) stack
+      iterate (NEWLINE :: buffer) stack
     | ']' :: stack ->
-      main_parser (BR_END :: buffer) stack
+      iterate (BR_END :: buffer) stack
     | '[' :: stack ->
-      main_parser (BR_START :: buffer) stack
+      iterate (BR_START :: buffer) stack
     | ')' :: stack ->
-      main_parser (END :: buffer) stack
+      iterate (END :: buffer) stack
     | '+' :: '+' :: [] -> (PREFIX_INCR :: buffer)
     | '+' :: '+' :: c :: tl when sep c ->
-      main_parser (PREFIX_INCR :: buffer) (c :: tl)
+      iterate (PREFIX_INCR :: buffer) (c :: tl)
     | '+' :: '+' :: c :: tl when postfix c ->
-      main_parser (POSTFIX_INCR :: buffer) (c :: tl)
+      iterate (POSTFIX_INCR :: buffer) (c :: tl)
     | '(' :: stack
     | '+' :: '(' :: stack ->
-      main_parser (START :: buffer) stack
+      iterate (START :: buffer) stack
     | '-' :: '-' :: [] -> (PREFIX_DECR :: buffer)
     | '-' :: '-' :: c :: tl when sep c ->
-      main_parser (PREFIX_DECR :: buffer) (c :: tl)
+      iterate (PREFIX_DECR :: buffer) (c :: tl)
     | '-' :: '-' :: c :: tl when postfix c ->
-      main_parser (POSTFIX_DECR :: buffer) (c :: tl)
+      iterate (POSTFIX_DECR :: buffer) (c :: tl)
     | '-' :: '(' :: stack ->
-      main_parser (START :: UNOP_MINUS :: buffer) stack
+      iterate (START :: UNOP_MINUS :: buffer) stack
     | '-' :: stack ->
-      main_parser (MINUS :: buffer) stack
+      iterate (MINUS :: buffer) stack
     | '+' :: stack ->
-      main_parser (PLUS :: buffer) stack
+      iterate (PLUS :: buffer) stack
     | '*' :: stack ->
-      main_parser (MULT :: buffer) stack
+      iterate (MULT :: buffer) stack
     | '/' :: stack ->
-      main_parser (DIV :: buffer) stack
+      iterate (DIV :: buffer) stack
     | '%' :: stack ->
-      main_parser (MOD :: buffer) stack
+      iterate (MOD :: buffer) stack
     | '^' :: '^' :: stack ->
-      main_parser (POW :: buffer) stack
+      iterate (POW :: buffer) stack
     | '^' :: stack ->
-      main_parser (B_XOR :: buffer) stack
+      iterate (B_XOR :: buffer) stack
     | '!' :: stack ->
-      main_parser (NOT :: buffer) stack
+      iterate (NOT :: buffer) stack
     | '~' :: stack ->
-      main_parser (B_NOT :: buffer) stack
+      iterate (B_NOT :: buffer) stack
     | '|' :: '|' :: stack ->
-      main_parser (OR :: buffer) stack
+      iterate (OR :: buffer) stack
     | '|' :: stack ->
-      main_parser (B_OR :: buffer) stack
+      iterate (B_OR :: buffer) stack
     | '&' :: '&' :: stack ->
-      main_parser (AND :: buffer) stack
+      iterate (AND :: buffer) stack
     | '&' :: stack ->
-      main_parser (B_AND :: buffer) stack
+      iterate (B_AND :: buffer) stack
     | '=' :: '>' :: stack ->
-      main_parser (GEQ :: buffer) stack
+      iterate (GEQ :: buffer) stack
     | '=' :: '<' :: stack ->
-      main_parser (LEQ :: buffer) stack
+      iterate (LEQ :: buffer) stack
     | '=' :: '!' :: stack ->
-      main_parser (NEQ :: buffer) stack
+      iterate (NEQ :: buffer) stack
     | '=' :: stack ->
-      main_parser (EQ :: buffer) stack
+      iterate (EQ :: buffer) stack
     | '<' :: '<' :: stack ->
-      main_parser (B_SHIFTL :: buffer) stack
+      iterate (B_SHIFTL :: buffer) stack
     | '<' :: stack ->
-      main_parser (LESS :: buffer) stack
+      iterate (LESS :: buffer) stack
     | '>' :: '>' :: '>' :: stack ->
-      main_parser (B_ASHIFTR :: buffer) stack
+      iterate (B_ASHIFTR :: buffer) stack
     | '>' :: '>' :: stack ->
-      main_parser (B_LSHIFTR :: buffer) stack
+      iterate (B_LSHIFTR :: buffer) stack
     | '>' :: stack ->
-      main_parser (GREATER :: buffer) stack
+      iterate (GREATER :: buffer) stack
     | '#' :: stack ->
-      main_parser (ignore_token buffer) stack
+      iterate (ignore_token buffer) stack
     | '\t' :: stack
     | ' ' :: stack ->
-      main_parser buffer stack
+      iterate buffer stack
     | '"' :: stack ->
       let tok, stack = str_token "" stack in
-      main_parser (tok :: buffer) stack
+      iterate (tok :: buffer) stack
     (* println *)
     | 'n' :: 'l' :: 't' :: 'n' :: 'i' :: 'r' :: 'p' :: [] -> (PRINTLN :: buffer)
     | 'n' :: 'l' :: 't' :: 'n' :: 'i' :: 'r' :: 'p' :: c :: tl when sep c ->
-      main_parser (PRINTLN :: buffer) (c :: tl)
+      iterate (PRINTLN :: buffer) (c :: tl)
     (* print *)
     | 't' :: 'n' :: 'i' :: 'r' :: 'p' :: [] -> (PRINT :: buffer)
     | 't' :: 'n' :: 'i' :: 'r' :: 'p' :: c :: tl when sep c ->
-      main_parser (PRINT :: buffer) (c :: tl)
+      iterate (PRINT :: buffer) (c :: tl)
     (* let *)
     | 't' :: 'e' :: 'l' :: [] -> (LET :: buffer)
     | 't' :: 'e' :: 'l' :: c :: tl when sep c ->
-      main_parser (LET :: buffer) (c :: tl)
+      iterate (LET :: buffer) (c :: tl)
     (* true *)
     | 'e' :: 'u' :: 'r' :: 't' :: [] -> (BOOL true :: buffer)
     | 'e' :: 'u' :: 'r' :: 't' :: c :: tl when sep c ->
-      main_parser (BOOL true :: buffer) (c :: tl)
+      iterate (BOOL true :: buffer) (c :: tl)
     (* false *)
     | 'e' :: 's' :: 'l' :: 'a' :: 'f' :: [] -> (BOOL false :: buffer)
     | 'e' :: 's' :: 'l' :: 'a' :: 'f' :: c :: tl when sep c ->
-      main_parser (BOOL false :: buffer) (c :: tl)
+      iterate (BOOL false :: buffer) (c :: tl)
     (* elif *)
     | 'f' :: 'i' :: 'l' :: 'e' :: [] -> (ELIF :: buffer)
     | 'f' :: 'i' :: 'l' :: 'e' :: c :: tl when sep c ->
-      main_parser (ELIF :: buffer) (c :: tl)
+      iterate (ELIF :: buffer) (c :: tl)
     (* endif *)
     | 'f' :: 'i' :: 'd' :: 'n' :: 'e' :: [] -> (ENDIF :: buffer)
     | 'f' :: 'i' :: 'd' :: 'n' :: 'e' :: c :: tl when sep c ->
-      main_parser (ENDIF :: buffer) (c :: tl)
+      iterate (ENDIF :: buffer) (c :: tl)
     (* if *)
     | 'f' :: 'i' :: [] -> (IF :: buffer)
     | 'f' :: 'i' :: c :: tl when sep c ->
-      main_parser (IF :: buffer) (c :: tl)
+      iterate (IF :: buffer) (c :: tl)
     (* else *)
     | 'e' :: 's' :: 'l' :: 'e' :: [] -> (ELSE :: buffer)
     | 'e' :: 's' :: 'l' :: 'e' :: c :: tl when sep c ->
-      main_parser (ELSE :: buffer) (c :: tl)
+      iterate (ELSE :: buffer) (c :: tl)
     (* endwhile *)
     | 'e' :: 'l' :: 'i' :: 'h' :: 'w' :: 'd' :: 'n' :: 'e' :: [] -> (ENDWHILE :: buffer)
     | 'e' :: 'l' :: 'i' :: 'h' :: 'w' :: 'd' :: 'n' :: 'e' :: c :: tl when sep c ->
-      main_parser (ENDWHILE :: buffer) (c :: tl)
+      iterate (ENDWHILE :: buffer) (c :: tl)
     (* while *)
     | 'e' :: 'l' :: 'i' :: 'h' :: 'w' :: [] -> (WHILE :: buffer)
     | 'e' :: 'l' :: 'i' :: 'h' :: 'w' :: c :: tl when sep c ->
-      main_parser (WHILE :: buffer) (c :: tl) 
+      iterate (WHILE :: buffer) (c :: tl) 
     (* endfun *)
     | 'n' :: 'u' :: 'f' :: 'd' :: 'n' :: 'e' :: [] -> (ENDFUN :: buffer)
     | 'n' :: 'u' :: 'f' :: 'd' :: 'n' :: 'e' :: c :: tl when sep c ->
-      main_parser (ENDFUN :: buffer) (c :: tl)
+      iterate (ENDFUN :: buffer) (c :: tl)
     (* fun *)
     | 'n' :: 'u' :: 'f' :: [] -> (FUN "_DEF_" :: buffer)
     | 'n' :: 'u' :: 'f' :: c :: tl when sep c ->
-      main_parser (FUN "_DEF_" :: buffer) (c :: tl)
+      iterate (FUN "_DEF_" :: buffer) (c :: tl)
     (* return *)
     | 'n' :: 'r' :: 'u' :: 't' :: 'e' :: 'r' :: [] -> (RETURN :: buffer)
     | 'n' :: 'r' :: 'u' :: 't' :: 'e' :: 'r' :: c :: tl when sep c ->
-      main_parser (RETURN :: buffer) (c :: tl)
+      iterate (RETURN :: buffer) (c :: tl)
     (* arr *)
     | 'r' :: 'r' :: 'a' :: [] -> (ARR :: buffer)
     | 'r' :: 'r' :: 'a' :: c :: tl when sep c ->
-      main_parser (ARR :: buffer) (c :: tl)
+      iterate (ARR :: buffer) (c :: tl)
     (* endfor *)
     | 'r' :: 'o' :: 'f' :: 'd' :: 'n' :: 'e' :: [] -> (ENDFOR :: buffer)
     | 'r' :: 'o' :: 'f' :: 'd' :: 'n' :: 'e' :: c :: tl when sep c ->
-      main_parser (ENDFOR :: buffer) (c :: tl)
+      iterate (ENDFOR :: buffer) (c :: tl)
     (* for *)
     | 'r' :: 'o' :: 'f' :: [] -> (FOR :: buffer)
     | 'r' :: 'o' :: 'f' :: c :: tl when sep c ->
-      main_parser (FOR :: buffer) (c :: tl)
+      iterate (FOR :: buffer) (c :: tl)
     (* break *)
     | 'k' :: 'a' :: 'e' :: 'r' :: 'b' :: [] -> (BREAK :: buffer)
     | 'k' :: 'a' :: 'e' :: 'r' :: 'b' :: c :: tl when sep c ->
-      main_parser (BREAK :: buffer) (c :: tl)
+      iterate (BREAK :: buffer) (c :: tl)
     (* scan *)
     | 'n' :: 'a' :: 'c' :: 's' :: [] -> (SCAN :: buffer)
     | 'n' :: 'a' :: 'c' :: 's' :: c :: tl when sep c ->
-      main_parser (SCAN :: buffer) (c :: tl)
+      iterate (SCAN :: buffer) (c :: tl)
     (* len *)
     | 'n' :: 'e' :: 'l' :: [] -> (LEN :: buffer)
     | 'n' :: 'e' :: 'l' :: c :: tl when sep c ->
-      main_parser (LEN :: buffer) (c :: tl)
+      iterate (LEN :: buffer) (c :: tl)
     (* rand *)
     | 'd' :: 'n' :: 'a' :: 'r' :: [] -> (RAND :: buffer)
     | 'd' :: 'n' :: 'a' :: 'r' :: c :: tl when sep c ->
-      main_parser (RAND :: buffer) (c :: tl)
+      iterate (RAND :: buffer) (c :: tl)
     (* floor *)
     | 'r' :: 'o' :: 'o' :: 'l' :: 'f' :: [] -> (FLOOR :: buffer)
     | 'r' :: 'o' :: 'o' :: 'l' :: 'f' :: c :: tl when sep c ->
-      main_parser (FLOOR :: buffer) (c :: tl)
+      iterate (FLOOR :: buffer) (c :: tl)
     (* ceil *)
     | 'l' :: 'i' :: 'e' :: 'c' :: [] -> (CEIL :: buffer)
     | 'l' :: 'i' :: 'e' :: 'c' :: c :: tl when sep c ->
-      main_parser (CEIL :: buffer) (c :: tl)
+      iterate (CEIL :: buffer) (c :: tl)
     (* include *)
     | 'e' :: 'd' :: 'u' :: 'l' :: 'c' :: 'n' :: 'i' :: [] -> (INCLUDE :: buffer)
     | 'e' :: 'd' :: 'u' :: 'l' :: 'c' :: 'n' :: 'i' :: c :: tl when sep c ->
-      main_parser (INCLUDE :: buffer) (c :: tl)
+      iterate (INCLUDE :: buffer) (c :: tl)
     (* tonum *)
     | 'm' :: 'u' :: 'n' :: 'o' :: 't' :: [] -> (TONUM :: buffer)
     | 'm' :: 'u' :: 'n' :: 'o' :: 't' :: c :: tl when sep c ->
-      main_parser (TONUM :: buffer) (c :: tl)
+      iterate (TONUM :: buffer) (c :: tl)
     (* openin *)
     | 'n' :: 'i' :: 'n' :: 'e' :: 'p' :: 'o' :: [] -> (OPENIN :: buffer)
     | 'n' :: 'i' :: 'n' :: 'e' :: 'p' :: 'o' :: c :: tl when sep c ->
-      main_parser (OPENIN :: buffer) (c :: tl)
+      iterate (OPENIN :: buffer) (c :: tl)
     (* openout *)
     | 't' :: 'u' :: 'o' :: 'n' :: 'e' :: 'p' :: 'o' :: [] -> (OPENOUT :: buffer)
     | 't' :: 'u' :: 'o' :: 'n' :: 'e' :: 'p' :: 'o' :: c :: tl when sep c ->
-      main_parser (OPENOUT :: buffer) (c :: tl)
+      iterate (OPENOUT :: buffer) (c :: tl)
     (* close *)
     | 'e' :: 's' :: 'o' :: 'l' :: 'c' :: [] -> (CLOSE :: buffer)
     | 'e' :: 's' :: 'o' :: 'l' :: 'c' :: c :: tl when sep c ->
-      main_parser (CLOSE :: buffer) (c :: tl)
+      iterate (CLOSE :: buffer) (c :: tl)
     (* read *)
     | 'd' :: 'a' :: 'e' :: 'r' :: [] -> (READ :: buffer)
     | 'd' :: 'a' :: 'e' :: 'r' :: c :: tl when sep c ->
-      main_parser (READ :: buffer) (c :: tl)
+      iterate (READ :: buffer) (c :: tl)
     (* write *)
     | 'e' :: 't' :: 'i' :: 'r' :: 'w' :: [] -> (WRITE :: buffer)
     | 'e' :: 't' :: 'i' :: 'r' :: 'w' :: c :: tl when sep c ->
-      main_parser (WRITE :: buffer) (c :: tl)
+      iterate (WRITE :: buffer) (c :: tl)
     (* throw *)
     | 'w' :: 'o' :: 'r' :: 'h' :: 't' :: [] -> (THROW :: buffer)
     | 'w' :: 'o' :: 'r' :: 'h' :: 't' :: c :: tl when sep c ->
-      main_parser (THROW :: buffer) (c :: tl)
+      iterate (THROW :: buffer) (c :: tl)
     (* catch *)
     | 'h' :: 'c' :: 't' :: 'a' :: 'c' :: [] -> (CATCH :: buffer)
     | 'h' :: 'c' :: 't' :: 'a' :: 'c' :: c :: tl when sep c ->
-      main_parser (CATCH :: buffer) (c :: tl)
+      iterate (CATCH :: buffer) (c :: tl)
     (* tochar *)
     | 'r' :: 'a' :: 'h' :: 'c' :: 'o' :: 't' :: [] -> (TOCHAR :: buffer)
     | 'r' :: 'a' :: 'h' :: 'c' :: 'o' :: 't' :: c :: tl when sep c ->
-      main_parser (TOCHAR :: buffer) (c :: tl)
+      iterate (TOCHAR :: buffer) (c :: tl)
     (* tostr *)
     | 'r' :: 't' :: 's' :: 'o' :: 't' :: [] -> (TOSTR :: buffer)
     | 'r' :: 't' :: 's' :: 'o' :: 't' :: c :: tl when sep c ->
-      main_parser (TOSTR :: buffer) (c :: tl)
+      iterate (TOSTR :: buffer) (c :: tl)
     (* sinh *)
     | 'h' :: 'n' :: 'i' :: 's' :: [] -> (SINH :: buffer)
     | 'h' :: 'n' :: 'i' :: 's' :: c :: tl when sep c ->
-      main_parser (SINH :: buffer) (c :: tl)
+      iterate (SINH :: buffer) (c :: tl)
     (* asin *)
     | 'n' :: 'i' :: 's' :: 'a' :: [] -> (ASIN :: buffer)
     | 'n' :: 'i' :: 's' :: 'a' :: c :: tl when sep c ->
-      main_parser (ASIN :: buffer) (c :: tl)
+      iterate (ASIN :: buffer) (c :: tl)
     (* sin *)
     | 'n' :: 'i' :: 's' :: [] -> (SIN :: buffer)
     | 'n' :: 'i' :: 's' :: c :: tl when sep c ->
-      main_parser (SIN :: buffer) (c :: tl)
+      iterate (SIN :: buffer) (c :: tl)
     (* cosh *)
     | 'h' :: 's' :: 'o' :: 'c' :: [] -> (COSH :: buffer)
     | 'h' :: 's' :: 'o' :: 'c' :: c :: tl when sep c ->
-      main_parser (COSH :: buffer) (c :: tl)
+      iterate (COSH :: buffer) (c :: tl)
     (* acos *)
     | 's' :: 'o' :: 'c' :: 'a' :: [] -> (ACOS :: buffer)
     | 's' :: 'o' :: 'c' :: 'a' :: c :: tl when sep c ->
-      main_parser (ACOS :: buffer) (c :: tl)
+      iterate (ACOS :: buffer) (c :: tl)
     (* cos *)
     | 's' :: 'o' :: 'c' :: [] -> (COS :: buffer)
     | 's' :: 'o' :: 'c' :: c :: tl when sep c ->
-      main_parser (COS :: buffer) (c :: tl)
+      iterate (COS :: buffer) (c :: tl)
     (* tanh *)
     | 'h' :: 'n' :: 'a' :: 't' :: [] -> (TANH :: buffer)
     | 'h' :: 'n' :: 'a' :: 't' :: c :: tl when sep c ->
-      main_parser (TANH :: buffer) (c :: tl)
+      iterate (TANH :: buffer) (c :: tl)
     (* atan *)
     | 'n' :: 'a' :: 't' :: 'a' :: [] -> (ATAN :: buffer)
     | 'n' :: 'a' :: 't' :: 'a' :: c :: tl when sep c ->
-      main_parser (ATAN :: buffer) (c :: tl)
+      iterate (ATAN :: buffer) (c :: tl)
     (* tan *)
     | 'n' :: 'a' :: 't' :: [] -> (TAN :: buffer)
     | 'n' :: 'a' :: 't' :: c :: tl when sep c ->
-      main_parser (TAN :: buffer) (c :: tl)
+      iterate (TAN :: buffer) (c :: tl)
     (* abs *)
     | 's' :: 'b' :: 'a' :: [] -> (ABS :: buffer)
     | 's' :: 'b' :: 'a' :: c :: tl when sep c ->
-      main_parser (ABS :: buffer) (c :: tl)
+      iterate (ABS :: buffer) (c :: tl)
     (* sqrt *)
     | 't' :: 'r' :: 'q' :: 's' :: [] -> (SQRT :: buffer)
     | 't' :: 'r' :: 'q' :: 's' :: c :: tl when sep c ->
-      main_parser (SQRT :: buffer) (c :: tl)
+      iterate (SQRT :: buffer) (c :: tl)
     (* log *)
     | 'g' :: 'o' :: 'l' :: [] -> (LOG :: buffer)
     | 'g' :: 'o' :: 'l' :: c :: tl when sep c ->
-      main_parser (LOG :: buffer) (c :: tl)
+      iterate (LOG :: buffer) (c :: tl)
     (* ln *)
     | 'n' :: 'l' :: [] -> (LN :: buffer)
     | 'n' :: 'l' :: c :: tl when sep c ->
-      main_parser (LN :: buffer) (c :: tl)
+      iterate (LN :: buffer) (c :: tl)
     (* exp *)
     | 'p' :: 'x' :: 'e' :: [] -> (EXP :: buffer)
     | 'p' :: 'x' :: 'e' :: c :: tl when sep c ->
-      main_parser (EXP :: buffer) (c :: tl)
+      iterate (EXP :: buffer) (c :: tl)
     (* free *)
     | 'e' :: 'e' :: 'r' :: 'f' :: [] -> (FREE :: buffer)
     | 'e' :: 'e' :: 'r' :: 'f' :: c :: tl when sep c ->
-      main_parser (FREE :: buffer) (c :: tl)
+      iterate (FREE :: buffer) (c :: tl)
     (* exists *)
     | 's' :: 't' :: 's' :: 'i' :: 'x' :: 'e' :: [] -> (EXISTS :: buffer)
     | 's' :: 't' :: 's' :: 'i' :: 'x' :: 'e' :: c :: tl when sep c ->
-      main_parser (EXISTS :: buffer) (c :: tl)
+      iterate (EXISTS :: buffer) (c :: tl)
     (* dict *)
     | 't' :: 'c' :: 'i' :: 'd' :: [] -> (DICT :: buffer)
     | 't' :: 'c' :: 'i' :: 'd' :: c :: tl when sep c ->
-      main_parser (DICT :: buffer) (c :: tl)
+      iterate (DICT :: buffer) (c :: tl)
     (* keys *)
     | 's' :: 'y' :: 'e' :: 'k' :: [] -> (KEYS :: buffer)
     | 's' :: 'y' :: 'e' :: 'k' :: c :: tl when sep c ->
-      main_parser (KEYS :: buffer) (c :: tl)
+      iterate (KEYS :: buffer) (c :: tl)
     (* continue *)
     | 'e' :: 'u' :: 'n' :: 'i' :: 't' :: 'n' :: 'o' :: 'c' :: [] -> (CONTINUE :: buffer)    
     | 'e' :: 'u' :: 'n' :: 'i' :: 't' :: 'n' :: 'o' :: 'c' :: c :: tl when sep c ->
-      main_parser (CONTINUE :: buffer) (c :: tl)
+      iterate (CONTINUE :: buffer) (c :: tl)
     (* cd *)
     | 'd' :: 'c' :: [] -> (CD :: buffer)
     | 'd' :: 'c' :: c :: tl when sep c ->
-      main_parser (CD :: buffer) (c :: tl)
+      iterate (CD :: buffer) (c :: tl)
     (* cwd *)
     | 'd' :: 'w' :: 'c' :: [] -> (CWD :: buffer)
     | 'd' :: 'w' :: 'c' :: c :: tl when sep c ->
-      main_parser (CWD :: buffer) (c :: tl)
+      iterate (CWD :: buffer) (c :: tl)
     (* env *)
     | 'v' :: 'n' :: 'e' :: [] -> (ENV :: buffer)
     | 'v' :: 'n' :: 'e' :: c :: tl when sep c ->
-      main_parser (ENV :: buffer) (c :: tl)
+      iterate (ENV :: buffer) (c :: tl)
     (* run *)
     | 'n' :: 'u' :: 'r' :: [] -> (RUN :: buffer)
     | 'n' :: 'u' :: 'r' :: c :: tl when sep c ->
-      main_parser (RUN :: buffer) (c :: tl)
+      iterate (RUN :: buffer) (c :: tl)
     | '\'' :: tl ->
       let tok, stack = char_token tl in
-      main_parser (tok :: buffer) stack
+      iterate (tok :: buffer) stack
     | '.' :: c :: stack when c >= '0' && c <= '9' ->
       let tok, stack = num_token "" ('.' :: c :: stack) in
-      main_parser (tok :: buffer) stack
+      iterate (tok :: buffer) stack
     | c :: stack when c >= '0' && c <= '9' ->
       let tok, stack = num_token "" (c :: stack) in
-      main_parser (tok :: buffer) stack
+      iterate (tok :: buffer) stack
     | ('a'..'z' as c) :: stack
     | ('A'..'Z' as c) :: stack ->
       let tok, stack = name_token "" (c :: stack) in
-      main_parser (tok :: buffer) stack
+      iterate (tok :: buffer) stack
     | _ :: stack ->
-      main_parser (ERROR :: buffer) stack
+      iterate (ERROR :: buffer) stack
     | [] -> 
       buffer
   ) in
-  main_parser [] stack
+  iterate [] stack
 )
 
 let char_stack (f : in_channel) = (
@@ -600,54 +600,41 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             | WRITE | THROW | FREE | RUN -> 12
             | tok -> raise (InvalidToken (tok, "at higher_order"))
           ) in
-          let op, stack_op = get_lvl op, get_lvl stack_op in
-          op < stack_op
+          get_lvl op < get_lvl stack_op
         ) in
         match stack with
         | [] ->
           [op], output
         | stack_op :: tl -> (
-          match op, stack_op with
+          match op  , stack_op with
           (* Special cases with parentheses and brackets *)
-          | BR_END, BR_START ->
-            tl, (DREF :: output)
-          | END, START ->
-            tl, output
-          | BR_END, _
-          | END, _ ->
-            precedence op tl (stack_op :: output)
+          | END     , START    -> tl, output
+          | BR_END  , BR_START -> tl, (DREF :: output)
+          | END     , _ 
+          | BR_END  , _        -> precedence op tl (stack_op :: output)
+          | START   , _
           | BR_START, _
-          | START, _ 
-          | _, BR_START
-          | _, START ->
-            (op :: stack), output
-          | op, stack_op ->
-            if higher_order op stack_op then
-              (op :: stack), output
-            else
-              precedence op tl (stack_op :: output)
+          | _       , START
+          | _       , BR_START -> (op :: stack), output
+          | op      , stack_op ->
+            if higher_order op stack_op
+            then (op :: stack), output
+            else precedence op tl (stack_op :: output)
         )
       ) in
       match input with
-      | NEWLINE :: _
-      | SEQ :: _
-      | [] -> (
+      | []
+      | SEQ     :: _
+      | NEWLINE :: _ -> (
         match stack with
         | [] -> (List.rev output), input
         | hd :: tl -> rpn input tl (hd :: output)
       )
       | NAME n :: tl when StrMap.mem n funs ->
         rpn tl (FUN n :: stack) output
-      | NAME _ :: tl
-      | STR _ :: tl
-      | INT _ :: tl 
-      | FLOAT _ :: tl
-      | BOOL _ :: tl 
-      | CHAR _ :: tl 
-      | DICT :: tl
-      | ARR :: tl ->
-        let elem = List.hd input in
-        rpn tl stack (elem :: output)
+      | NAME  _ | STR  _ | INT  _   
+      | FLOAT _ | BOOL _ | CHAR _  
+      | DICT    | ARR as hd :: tl -> rpn tl stack (hd :: output)
       | op :: tl ->
         let stack, output = precedence op stack output in
         rpn tl stack output
@@ -655,13 +642,13 @@ let interpreter (tokens : token list) (arg_offset : int) = (
     let strip_if (stack : token list) = (
       let rec loop (stack : token list) (cnt : int) = (
         match stack with
-        | IF :: stack -> loop stack (cnt + 1)
+        | IF    :: stack -> loop stack (cnt + 1)
         | ELIF  :: stack when cnt = 1 -> (IF :: stack)
         | ELSE  :: stack when cnt = 1 -> stack
         | ENDIF :: stack when cnt = 1 -> stack
         | ENDIF :: stack -> loop stack (cnt - 1)
-        | _ :: stack -> loop stack cnt
-        | [] -> []
+        | _     :: stack -> loop stack cnt
+        | []             -> []
       ) in
       loop stack 1
     ) in
@@ -669,46 +656,46 @@ let interpreter (tokens : token list) (arg_offset : int) = (
       let rec loop (stack : token list) (buffer : token list) (cnt : int) = (
         if cnt > 0 then
           match stack with
-          | IF :: tl -> loop tl buffer (cnt + 1)
+          | IF    :: tl -> loop tl buffer (cnt + 1)
           | ENDIF :: tl -> loop tl buffer (cnt - 1)
-          | _ :: tl -> loop tl buffer cnt
-          | [] -> []
+          | _     :: tl -> loop tl buffer cnt
+          | []          -> []
         else
           match buffer with
           | hd :: tl -> loop (hd :: stack) tl cnt
-          | [] -> stack
+          | []       -> stack
       ) in
       let rec store_if (input : token list) (buffer : token list) (cnt : int) = (
         match input with
-        | IF :: tl -> store_if tl (IF :: buffer) (cnt + 1)
+        | IF    :: tl -> store_if tl (IF :: buffer) (cnt + 1)
         | ELIF  :: tl when cnt = 1 -> loop tl buffer 1
         | ELSE  :: tl when cnt = 1 -> loop tl buffer 1
         | ENDIF :: tl when cnt = 1 -> stack
         | ENDIF :: tl -> store_if tl (ENDIF :: buffer) (cnt - 1)
-        | hd :: tl -> store_if tl (hd :: buffer) cnt
-        | [] -> []
+        | hd    :: tl -> store_if tl (hd :: buffer) cnt
+        | []          -> []
       ) in
       store_if stack [] 1
     ) in
     let copy_while (stack : token list) = (
       let rec strip_while (stack : token list) (buffer : token list) (cnt : int) = (
         match stack with
-        | WHILE :: tl -> strip_while tl (WHILE :: buffer) (cnt + 1)
+        | WHILE    :: tl -> strip_while tl (WHILE :: buffer) (cnt + 1)
         | ENDWHILE :: tl when cnt = 1 -> List.rev buffer, tl
         | ENDWHILE :: tl -> strip_while tl (ENDWHILE :: buffer) (cnt - 1)
-        | hd :: tl -> strip_while tl (hd :: buffer) cnt
-        | [] -> raise (InvalidToken (LIST [], "at copy_while"))
+        | hd       :: tl -> strip_while tl (hd :: buffer) cnt
+        | []             -> raise (InvalidToken (LIST [], "at copy_while"))
       ) in
       strip_while stack [] 1
     ) in
     let copy_for (stack : token list) = (
       let rec strip_for (stack : token list) (buffer : token list) (cnt : int) = (
         match stack with
-        | FOR :: tl -> strip_for tl (FOR :: buffer) (cnt + 1)
+        | FOR    :: tl -> strip_for tl (FOR :: buffer) (cnt + 1)
         | ENDFOR :: tl when cnt = 1 -> List.rev buffer, tl
         | ENDFOR :: tl -> strip_for tl (ENDFOR :: buffer) (cnt - 1)
-        | hd :: tl -> strip_for tl (hd :: buffer) cnt
-        | [] -> raise (InvalidToken (LIST [], "at copy_for"))
+        | hd     :: tl -> strip_for tl (hd :: buffer) cnt
+        | []           -> raise (InvalidToken (LIST [], "at copy_for"))
       ) in
       strip_for stack [] 1
     ) in
@@ -716,27 +703,20 @@ let interpreter (tokens : token list) (arg_offset : int) = (
       let rec parse_args (input : token list) (output : string list) (counter : int) = (
         match input with
         | NEWLINE :: input
-        | SEQ :: input ->
-          input, counter, output
-        | NAME n :: input ->
-          parse_args input (n :: output) (counter + 1)
-        | _ -> raise (InvalidFunction "at parse_args")
+        | SEQ     :: input -> input, counter, output
+        | NAME n  :: input -> parse_args input (n :: output) (counter + 1)
+        | _                -> raise (InvalidFunction "at parse_args")
       ) in 
       let rec skip_fun (input : token list) (output : token list) (counter : int) = (
         match input with
-        | FUN "_DEF_" :: tl ->
-          skip_fun tl (List.hd input :: output) (counter + 1)
-        | ENDFUN :: tl when counter = 1 ->
-          tl, List.rev output
-        | ENDFUN :: tl ->
-          skip_fun tl (List.hd input :: output) (counter - 1)
-        | hd :: tl ->
-          skip_fun tl (hd :: output) counter
-        | [] ->
-          raise (InvalidFunction "at skip_fun")
+        | FUN "_DEF_" as hd :: tl -> skip_fun tl (hd :: output) (counter + 1)
+        | ENDFUN            :: tl when counter = 1 -> tl, List.rev output
+        | ENDFUN      as hd :: tl -> skip_fun tl (hd :: output) (counter - 1)
+        | hd                :: tl -> skip_fun tl (hd :: output) counter
+        | []                      -> raise (InvalidFunction "at skip_fun")
       ) in
       let (input, argc, argv : token list * int * string list) = parse_args input [] 0 in
-      let (output, sequence : token list * token list) = skip_fun input [] 1 in
+      let (output, sequence  : token list * token list) = skip_fun input [] 1 in
       (argc, argv, sequence), output
     ) in
     let rec eval_rpn (input : token list) (vars : token StrMap.t) (stack : token list) = (
@@ -748,35 +728,27 @@ let interpreter (tokens : token list) (arg_offset : int) = (
               loop stack (a.(i) :: buffer) (index + 1)
             | STR s :: DICTIONARY d :: stack -> (
               match Hashtbl.find d s with
-              | elem -> (loop [@tailcall]) stack (elem :: buffer) (index + 1)
-              | exception Not_found -> (loop [@tailcall]) stack (UNDEFINED s :: buffer) (index + 1)
+              | elem                -> loop stack (elem :: buffer) (index + 1)
+              | exception Not_found -> loop stack (UNDEFINED s :: buffer) (index + 1)
             )
             | NAME a :: stack -> (
               match StrMap.find a vars with
-              | elem -> (loop [@tailcall]) stack (elem :: buffer) (index + 1)
-              | exception Not_found -> (loop [@tailcall]) stack (UNDEFINED a :: buffer) (index + 1)
+              | elem                -> loop stack (elem :: buffer) (index + 1)
+              | exception Not_found -> loop stack (UNDEFINED a :: buffer) (index + 1)
             )
-            | hd :: tl ->
-              loop tl (hd :: buffer) (index + 1)
-            | [] -> loop [] buffer n
+            | hd :: tl -> loop tl (hd :: buffer) (index + 1)
+            | []       -> loop [] buffer n
           else
             match buffer with
-            | hd :: tl ->
-              loop (hd :: stack) tl index
-            | [] -> stack
+            | hd :: tl -> loop (hd :: stack) tl index
+            | []       -> stack
         ) in
         loop stack [] 0
       ) in
       match input with
-      | NAME _ :: tl
-      | STR _ :: tl
-      | INT _ :: tl 
-      | FLOAT _ :: tl
-      | BOOL _ :: tl 
-      | CHAR _ :: tl 
-      | ARR :: tl 
-      | DICT :: tl ->
-        eval_rpn tl vars ((List.hd input) :: stack)
+      | NAME  _ | STR  _ | INT  _
+      | FLOAT _ | BOOL _ | CHAR _ 
+      | ARR     | DICT as hd :: tl -> eval_rpn tl vars (hd :: stack)
       | op :: input -> (
         match op with
         | LET -> (
@@ -810,10 +782,10 @@ let interpreter (tokens : token list) (arg_offset : int) = (
         )
         | SCAN -> (
           match stack with
-          | NAME "int" :: stack ->
+          | NAME "int"   :: stack ->
             (try INT (read_int ()) with _ -> SCAN_ERR) :: stack
             |> eval_rpn input vars
-          | NAME "str" :: stack ->
+          | NAME "str"   :: stack ->
             (try STR (read_line ()) with _ -> SCAN_ERR) :: stack
             |> eval_rpn input vars
           | NAME "float" :: stack ->
@@ -839,13 +811,11 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           )
           | NAME n :: stack -> (
             match StrMap.find n vars with
-            | exception Not_found -> (eval_rpn [@tailcall]) input vars (UNDEFINED n :: stack)
-            | v ->
-              match v with
-              | INT i ->
-                let v = INT (i + 1) in
-                (eval_rpn [@tailcall]) input (StrMap.add n v (StrMap.remove n vars)) (v :: stack)
-              | tok -> raise (InvalidToken (tok, "at PREFIX_INCR"))
+            | exception Not_found -> eval_rpn input vars (UNDEFINED n :: stack)
+            | INT i ->
+              let v = INT (i + 1) in
+              eval_rpn input (StrMap.add n v (StrMap.remove n vars)) (v :: stack)
+            | tok -> raise (InvalidToken (tok, "at PREFIX_INCR"))
           )
           | stack -> raise (InvalidToken (LIST stack, "at PREFIX_INCR"))
         )
@@ -867,13 +837,11 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           )
           | NAME n :: stack -> (
             match StrMap.find n vars with
-            | exception Not_found -> (eval_rpn [@tailcall]) input vars (UNDEFINED n :: stack)
-            | v ->
-              match v with
-              | INT i ->
-                let v = INT (i - 1) in
-                (eval_rpn [@tailcall]) input (StrMap.add n v (StrMap.remove n vars)) (v :: stack)
-              | tok -> raise (InvalidToken (tok, "at PREFIX_DECR"))
+            | exception Not_found -> eval_rpn input vars (UNDEFINED n :: stack)
+            | INT i ->
+              let v = INT (i - 1) in
+              eval_rpn input (StrMap.add n v (StrMap.remove n vars)) (v :: stack)
+            | tok -> raise (InvalidToken (tok, "at PREFIX_DECR"))
           )
           | stack -> raise (InvalidToken (LIST stack, "at PREFIX_DECR"))
         )
@@ -895,13 +863,11 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           )
           | NAME n :: stack -> (
             match StrMap.find n vars with
-            | exception Not_found -> (eval_rpn [@tailcall]) input vars (UNDEFINED n :: stack)
-            | v ->
-              match v with
-              | INT i ->
-                let v = INT (i + 1) in
-                (eval_rpn [@tailcall]) input (StrMap.add n v (StrMap.remove n vars)) (INT i :: stack)
-              | tok -> raise (InvalidToken (tok, "at POSTFIX_INCR"))
+            | exception Not_found -> eval_rpn input vars (UNDEFINED n :: stack)
+            | INT i ->
+              let v = INT (i + 1) in
+              eval_rpn input (StrMap.add n v (StrMap.remove n vars)) (INT i :: stack)
+            | tok -> raise (InvalidToken (tok, "at POSTFIX_INCR"))
           )
           | stack -> raise (InvalidToken (LIST stack, "at POSTFIX_INCR"))
         )
@@ -923,13 +889,11 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           )
           | NAME n :: stack -> (
             match StrMap.find n vars with
-            | exception Not_found -> (eval_rpn [@tailcall]) input vars (UNDEFINED n :: stack)
-            | v ->
-              match v with
-              | INT i ->
-                let v = INT (i - 1) in
-                (eval_rpn [@tailcall]) input (StrMap.add n v (StrMap.remove n vars)) (INT i :: stack)
-              | tok -> raise (InvalidToken (tok, "at POSTFIX_DECR"))
+            | exception Not_found -> eval_rpn input vars (UNDEFINED n :: stack)
+            | INT i ->
+              let v = INT (i - 1) in
+              eval_rpn input (StrMap.add n v (StrMap.remove n vars)) (INT i :: stack)
+            | tok -> raise (InvalidToken (tok, "at POSTFIX_DECR"))
           )
           | stack -> raise (InvalidToken (LIST stack, "at POSTFIX_DECR"))
         )
@@ -939,21 +903,22 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           | first :: STR a :: DICTIONARY d :: stack -> (
             match Hashtbl.find d a, first with
             | exception Not_found ->
-              eval_rpn input vars (first :: UNDEFINED a :: stack)
+              eval_rpn input vars (UNDEFINED a :: stack)
             | STR s, INT i ->
               eval_rpn input vars (CHAR s.[i] :: stack)
-            | DICTIONARY d, STR s ->
-              eval_rpn input vars (STR s :: DICTIONARY d :: stack)
-            | DICTIONARY d, INT i -> eval_rpn input vars (STR (string_of_int i) :: DICTIONARY d :: stack)
-            | elem, first-> eval_rpn input vars (first :: elem :: stack)
+            | DICTIONARY d, INT i -> 
+              STR (string_of_int i) :: DICTIONARY d :: stack
+              |> eval_rpn input vars
+            | elem, first ->
+              eval_rpn input vars (first :: elem :: stack)
           )
           | first :: INT i :: ARRAY a :: stack -> (
             match a.(i), first with
             | STR s, INT i ->
               eval_rpn input vars (CHAR s.[i] :: stack)
-            | DICTIONARY d, STR s ->
-              eval_rpn input vars (STR s :: DICTIONARY d :: stack)
-            | DICTIONARY d, INT i -> eval_rpn input vars (STR (string_of_int i) :: DICTIONARY d :: stack)
+            | DICTIONARY d, INT i -> 
+              STR (string_of_int i) :: DICTIONARY d :: stack
+              |> eval_rpn input vars
             | elem, first -> eval_rpn input vars (first :: elem :: stack)
           )
           | INT i :: NAME n :: stack -> (
@@ -964,10 +929,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
               eval_rpn input vars (INT i :: ARRAY a :: stack)
             | STR s ->
               eval_rpn input vars (CHAR s.[i] :: stack)
-            | DICTIONARY d -> (
-              let i = string_of_int i in
-              eval_rpn input vars (STR i :: DICTIONARY d :: stack)
-            )
+            | DICTIONARY d ->
+              STR (string_of_int i) :: DICTIONARY d :: stack
+              |> eval_rpn input vars
             | tok -> raise (InvalidToken (tok, "at DREF"))
           )
           | INT i :: STR s :: stack ->
@@ -981,20 +945,21 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           | stack -> raise (InvalidToken (LIST stack, "at DREF"))
         )
         | FUN n -> (
-          let argc, args, sequence = try StrMap.find n funs 
-          with Not_found -> raise (InvalidToken (FUN n, "at FUN")) in
+          let argc, args, sequence = 
+            try  StrMap.find n funs 
+            with Not_found -> raise (InvalidToken (FUN n, "at FUN")) in
           let stack = dref stack argc in
           let rec assign (args : string list) (stack : token list) (vars : token StrMap.t) = (
             match args, stack with
-            | n :: tl, v :: stack ->
-              assign tl stack (StrMap.add n v vars)
-            | [], _ -> vars, stack
-            | _ -> raise (InvalidFunction "at assign")
+            | n :: tl , v :: stack -> assign tl stack (StrMap.add n v vars)
+            | []      , _          -> vars, stack
+            | _                    -> raise (InvalidFunction "at assign")
           ) in
           let fn_vars, stack = assign args stack StrMap.empty in
           let res_vars = iterate sequence fn_vars funs in
           if StrMap.mem "_RETURN_" res_vars then
-            eval_rpn input vars ((StrMap.find "_RETURN_" res_vars) :: stack)
+            StrMap.find "_RETURN_" res_vars :: stack
+            |> eval_rpn input vars
           else
             eval_rpn input vars stack
         )
@@ -1008,10 +973,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           | FLOAT a :: stack ->
             print_float a; eval_rpn input vars stack
           | BOOL a :: stack ->
-            if a then
-              print_string "true"
-            else
-              print_string "false";
+            string_of_bool a |> print_string;
             eval_rpn input vars stack
           | CHAR a :: stack ->
             print_char a; eval_rpn input vars stack
@@ -1029,10 +991,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             print_float a; print_newline ();
             eval_rpn input vars stack
           | BOOL a :: stack ->
-            if a then
-              print_endline "true"
-            else
-              print_endline "false";
+            string_of_bool a |> print_endline;
             eval_rpn input vars stack
           | CHAR a :: stack ->
             print_char a; print_newline ();
@@ -1265,24 +1224,24 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           let stack = dref stack 2 in
           match stack with
           | BOOL b :: BOOL a :: stack ->
-            let v = BOOL (a && b) in
-            eval_rpn input vars (v :: stack)
+            BOOL (a && b) :: stack
+            |> eval_rpn input vars
           | stack -> raise (InvalidToken (LIST stack, "at AND"))
         )
         | OR -> (
           let stack = dref stack 2 in
           match stack with
           | BOOL b :: BOOL a :: stack ->
-            let v = BOOL (a || b) in
-            eval_rpn input vars (v :: stack)
+            BOOL (a || b) :: stack
+            |> eval_rpn input vars
           | stack -> raise (InvalidToken (LIST stack, "at OR"))
         )
         | NOT -> (
           let stack = dref stack 1 in
           match stack with
           | BOOL a :: stack ->
-            let v = BOOL (not a) in
-            eval_rpn input vars (v :: stack)
+            BOOL (not a) :: stack
+            |> eval_rpn input vars
           | stack -> raise (InvalidToken (LIST stack, "at NOT"))
         )
         | POW -> (
@@ -1321,28 +1280,31 @@ let interpreter (tokens : token list) (arg_offset : int) = (
         | FLOOR -> (
           let stack = dref stack 1 in
           match stack with
-          | INT _ :: _ -> eval_rpn input vars stack
+          | INT   _ :: _     -> eval_rpn input vars stack
           | FLOAT f :: stack ->
-            eval_rpn input vars (INT (int_of_float (floor f)) :: stack)
+            INT (floor f |> int_of_float) :: stack
+            |> eval_rpn input vars
           | stack -> raise (InvalidToken (LIST stack, "at FLOOR"))
         )
         | CEIL -> (
           let stack = dref stack 1 in
           match stack with
-          | INT _ :: _ -> eval_rpn input vars stack
+          | INT   _ :: _     -> eval_rpn input vars stack
           | FLOAT f :: stack ->
-            eval_rpn input vars (INT (int_of_float (ceil f)) :: stack)
+            INT (ceil f |> int_of_float) :: stack
+            |> eval_rpn input vars
           | stack -> raise (InvalidToken (LIST stack, "at CEIL"))
         )
         | TONUM -> (
           let stack = dref stack 1 in
           match stack with
-          | INT _ :: _ | FLOAT _ :: _ ->
-            eval_rpn input vars stack
-          | CHAR c :: stack ->
-            eval_rpn input vars (INT (Char.code c) :: stack)
+          | INT   _ :: _ 
+          | FLOAT _ :: _     -> eval_rpn input vars stack
+          | CHAR c  :: stack ->
+            INT (Char.code c) :: stack
+            |> eval_rpn input vars
           | STR s :: stack ->
-            let num = try INT (int_of_string s)
+            let num = try INT   (int_of_string s)
             with _ -> try FLOAT (float_of_string s)
             with _ -> TONUM_ERR s in
             eval_rpn input vars (num :: stack)
@@ -1353,8 +1315,8 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           match stack with
           | STR n :: stack -> (
             match open_in n with
-            | file -> (eval_rpn [@tailcall]) input vars (INCHAN file :: stack)
-            | exception _ -> (eval_rpn [@tailcall]) input vars (NOT_FOUND n :: stack)
+            | file        -> eval_rpn input vars (INCHAN file :: stack)
+            | exception _ -> eval_rpn input vars (NOT_FOUND n :: stack)
           )
           | stack -> raise (InvalidToken (LIST stack, "at OPENIN"))
         )
@@ -1363,29 +1325,27 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           match stack with
           | STR n :: stack -> (
             match open_out n with
-            | file -> (eval_rpn [@tailcall]) input vars (OUTCHAN file :: stack)
-            | exception _ -> (eval_rpn [@tailcall]) input vars (NOT_FOUND n :: stack)
+            | file        -> eval_rpn input vars (OUTCHAN file :: stack)
+            | exception _ -> eval_rpn input vars (NOT_FOUND  n :: stack)
           )
           | stack -> raise (InvalidToken (LIST stack, "at OPENOUT"))
         )
         | CLOSE -> (
           let stack = dref stack 1 in
           match stack with
-          | INCHAN c :: stack ->
-            close_in c; eval_rpn input vars stack
-          | OUTCHAN c :: stack ->
-            close_out c; eval_rpn input vars stack
+          | INCHAN c  :: stack -> close_in  c; eval_rpn input vars stack
+          | OUTCHAN c :: stack -> close_out c; eval_rpn input vars stack
           | stack -> raise (InvalidToken (LIST stack, "at CLOSE"))
         )
         | CATCH -> (
           let stack = dref stack 1 in
           match stack with
-          | EOF :: stack
-          | SCAN_ERR :: stack
+          | EOF         :: stack
+          | SCAN_ERR    :: stack
           | TONUM_ERR _ :: stack
           | UNDEFINED _ :: stack
-          | NOT_FOUND _ :: stack -> eval_rpn input vars (BOOL true :: stack)
-          | _ :: stack -> eval_rpn input vars (BOOL false :: stack)
+          | NOT_FOUND _ :: stack -> eval_rpn input vars (BOOL  true :: stack)
+          | _           :: stack -> eval_rpn input vars (BOOL false :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at CATCH"))
         )
         | READ -> (
@@ -1395,13 +1355,13 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             match t with
             | "str" -> (
               match input_line c with
-              | s -> (eval_rpn [@tailcall]) input vars (STR s :: stack)
-              | exception End_of_file -> (eval_rpn [@tailcall]) input vars (EOF :: stack)
+              | s                     -> eval_rpn input vars (STR s :: stack)
+              | exception End_of_file -> eval_rpn input vars (EOF   :: stack)
             )
             | "char" -> (
               match input_char c with
-              | c -> (eval_rpn [@tailcall]) input vars (CHAR c :: stack)
-              | exception End_of_file -> (eval_rpn [@tailcall]) input vars (EOF :: stack)
+              | c                     -> eval_rpn input vars (CHAR c :: stack)
+              | exception End_of_file -> eval_rpn input vars (EOF    :: stack)
             )
             | _ -> raise (InvalidToken (NAME t, "at READ"))
           )
@@ -1410,44 +1370,40 @@ let interpreter (tokens : token list) (arg_offset : int) = (
         | WRITE -> (
           let stack = dref stack 2 in
           match stack with
-          | OUTCHAN c :: STR s :: stack ->
-            output_string c s; eval_rpn input vars stack
-          | OUTCHAN c :: CHAR ch :: stack ->
-            output_char c ch; eval_rpn input vars stack
-          | OUTCHAN c :: INT i :: stack ->
-            output_string c (string_of_int i); eval_rpn input vars stack
-          | OUTCHAN c :: FLOAT f :: stack ->
-            output_string c (string_of_float f); eval_rpn input vars stack
+          | OUTCHAN o :: STR s :: stack ->
+            output_string o s; eval_rpn input vars stack
+          | OUTCHAN o :: CHAR c :: stack ->
+            output_char o c; eval_rpn input vars stack
+          | OUTCHAN o :: INT i :: stack ->
+            output_string o (string_of_int i); eval_rpn input vars stack
+          | OUTCHAN o :: FLOAT f :: stack ->
+            output_string o (string_of_float f); eval_rpn input vars stack
           | stack -> raise (InvalidToken (LIST stack, "at WRITE"))
-        )
-        | THROW -> (
-          raise (InvalidToken (LIST stack, "at THROW"))
         )
         | TOCHAR -> (
           let stack = dref stack 1 in
           match stack with
-          | INT i :: stack ->
+          | INT  i :: stack ->
             eval_rpn input vars (CHAR (Char.chr i) :: stack)
-          | STR s :: stack ->
+          | STR  s :: stack ->
             eval_rpn input vars (CHAR (s.[0]) :: stack)
-          | CHAR _ :: _ ->
+          | CHAR _ :: _     ->
             eval_rpn input vars stack
           | stack -> raise (InvalidToken (LIST stack, "at TOCHAR"))
         )
         | TOSTR -> (
           let stack = dref stack 1 in
           match stack with
-          | INT i :: stack ->
+          | STR   _ :: _     ->
+            eval_rpn input vars stack
+          | INT   i :: stack ->
             eval_rpn input vars (STR (string_of_int i) :: stack)
           | FLOAT f :: stack ->
             eval_rpn input vars (STR (string_of_float f) :: stack)
-          | CHAR c :: stack ->
+          | CHAR  c :: stack ->
             eval_rpn input vars (STR (String.make 1 c) :: stack)
-          | STR _ :: _ ->
-            eval_rpn input vars stack
           | BOOL b :: stack ->
-            let s = if b then "true" else "false" in
-            eval_rpn input vars (STR s :: stack)
+            eval_rpn input vars (STR (string_of_bool b) :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at TOSTR"))
         )
         | B_AND -> (
@@ -1654,20 +1610,17 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           match stack with
           | STR s :: stack -> (
             match Sys.chdir s with
-            | exception _ -> eval_rpn input vars (NOT_FOUND s :: stack)
-            | ()  -> eval_rpn input vars (STR (Sys.getcwd ()) :: stack)
+            | exception _ -> eval_rpn input vars (NOT_FOUND         s :: stack)
+            | ()          -> eval_rpn input vars (STR (Sys.getcwd ()) :: stack)
           )
           | stack -> raise (InvalidToken (LIST stack, "at CD"))
-        )
-        | CWD -> (
-          eval_rpn input vars (STR (Sys.getcwd ()) :: stack)
         )
         | ENV -> (
           let stack = dref stack 1 in
           match stack with
           | STR s :: stack -> (
             match Sys.getenv_opt s with
-            | Some s -> eval_rpn input vars (STR s :: stack)
+            | Some s -> eval_rpn input vars (STR       s :: stack)
             | None   -> eval_rpn input vars (NOT_FOUND s :: stack)
           )
           | stack -> raise (InvalidToken (LIST stack, "at ENV"))
@@ -1675,23 +1628,24 @@ let interpreter (tokens : token list) (arg_offset : int) = (
         | RUN -> (
           let stack = dref stack 1 in
           match stack with
-          | STR s :: stack -> (
+          | STR s :: stack ->
             INT (Sys.command s) :: stack
             |> eval_rpn input vars
-          )
           | stack -> raise (InvalidToken (LIST stack, "at RUN"))
         )
-        | op -> raise (InvalidToken (op, "at eval_rpn"))
+        | CWD   -> eval_rpn input vars (STR (Sys.getcwd ()) :: stack)
+        | THROW -> raise (InvalidToken (LIST stack, "at THROW"))
+        | op    -> raise (InvalidToken (op, "at eval_rpn"))
       )
       | [] -> vars
     ) in  
     match input with
     | []
     | CONTINUE :: _ -> vars
-    | SEQ :: input
-    | ENDIF :: input
+    | SEQ     :: input
+    | ENDIF   :: input
     | NEWLINE :: input -> iterate input vars funs
-    | BREAK :: input -> StrMap.add "_BREAK_" BREAK (StrMap.remove "_BREAK_" vars)
+    | BREAK   :: input -> StrMap.add "_BREAK_" BREAK (StrMap.remove "_BREAK_" vars)
     | INCLUDE :: STR n :: input ->
       let tokens = find_file n |> char_stack |> tokenizer in
       iterate (tokens @ input) vars funs
@@ -1700,9 +1654,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
       let vars = eval_rpn expr vars [] in
       match StrMap.find "_EVAL_" vars with
       | exception Not_found -> raise (InvalidToken (NAME "_EVAL_", "at IF"))
-      | BOOL true  -> iterate (strip_else input) vars funs
-      | BOOL false -> iterate (strip_if input) vars funs
-      | eval -> raise (InvalidToken (eval, "at IF"))
+      | BOOL true           -> iterate (strip_else input) vars funs
+      | BOOL false          -> iterate (strip_if input) vars funs
+      | eval                -> raise (InvalidToken (eval, "at IF"))
     )
     | RETURN :: input -> (
       let expr, _ = rpn (LET :: NAME "_RETURN_" :: input) [] [] in

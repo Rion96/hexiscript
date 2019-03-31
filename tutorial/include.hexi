@@ -2,6 +2,10 @@
 # It functions similarly to the preprocessor #include in C,
 # in that it just copies the contents into this file.
 
+# 'include' will first check the current directory
+# If it can't find the file there,
+# it will attempt to check in PATH
+
 # Syntax include "[FILENAME]"
 include "helper.hexi"
 
