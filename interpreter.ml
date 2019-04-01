@@ -1,7 +1,7 @@
 module StrMap = Map.Make (String)
 
 type token =
-  | NAME of string | CD | CWD | ENV
+  | NAME of string | CD | CWD | ENV | OUTOFBOUNDS of int
   | FUN of string | ENDFUN | CONTINUE | RUN
   | INT of int | TONUM | DICT | KEYS | ELIF
   | FLOAT of float | DICTIONARY of (string, token) Hashtbl.t
@@ -142,6 +142,7 @@ let rec string_of_token (tok : token) = (
   | CWD           -> "CWD"
   | ENV           -> "ENV"
   | RUN           -> "RUN"
+  | OUTOFBOUNDS i -> ("OUTOFBOUNDS " ^ (string_of_int i))
 )
 
 let tokenizer (stack : char list) = (
@@ -724,8 +725,11 @@ let interpreter (tokens : token list) (arg_offset : int) = (
         let rec loop (stack : token list) (buffer : token list) (index : int) = (
           if index < n then
             match stack with
-            | INT i :: ARRAY a :: stack ->
-              loop stack (a.(i) :: buffer) (index + 1)
+            | INT i :: ARRAY a :: stack -> (
+              match a.(i) with
+              | elem        -> loop stack (elem :: buffer) (index + 1)
+              | exception _ -> loop stack (OUTOFBOUNDS i :: buffer) (index + 1)
+            )
             | STR s :: DICTIONARY d :: stack -> (
               match Hashtbl.find d s with
               | elem                -> loop stack (elem :: buffer) (index + 1)
@@ -756,25 +760,36 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           match stack with
           | v :: NAME n :: stack ->
             eval_rpn input (StrMap.add n v (StrMap.remove n vars)) (v :: stack)
-          | v :: INT i :: ARRAY a :: stack ->
-            a.(i) <- v; eval_rpn input vars (v :: stack)
+          | v :: INT i :: ARRAY a :: stack -> (
+            match a.(i) with
+            | exception _ -> eval_rpn input vars (OUTOFBOUNDS i :: stack)
+            | _ -> a.(i) <- v; eval_rpn input vars (v :: stack)
+          )
           | v :: STR s :: DICTIONARY d :: stack ->
             Hashtbl.replace d s v; eval_rpn input vars (v :: stack)
           | INT size :: ARR :: NAME n :: stack ->
             let arr = ARRAY (Array.make size (INT 0)) in
             eval_rpn input (StrMap.add n arr (StrMap.remove n vars)) (arr :: stack)
-          | INT size :: ARR :: INT i :: ARRAY a :: stack ->
-            let arr = ARRAY (Array.make size (INT 0)) in
-            a.(i) <- arr; eval_rpn input vars (arr :: stack)
+          | INT size :: ARR :: INT i :: ARRAY a :: stack -> (
+            match a.(i) with
+            | exception _ -> eval_rpn input vars (OUTOFBOUNDS i :: stack)
+            | _ -> 
+              let arr = ARRAY (Array.make size (INT 0)) in
+              a.(i) <- arr; eval_rpn input vars (arr :: stack)
+          )
           | INT size :: ARR :: STR s :: DICTIONARY d :: stack ->
             let arr = ARRAY (Array.make size (INT 0)) in
             Hashtbl.replace d s arr; eval_rpn input vars (arr :: stack)
           | INT size :: DICT :: NAME n :: stack ->
             let dict = DICTIONARY (Hashtbl.create size) in
             eval_rpn input (StrMap.add n dict (StrMap.remove n vars)) (dict :: stack)
-          | INT size :: DICT :: INT i :: ARRAY a :: stack ->
+          | INT size :: DICT :: INT i :: ARRAY a :: stack -> (
+            match a.(i) with
+            | exception _ -> eval_rpn input vars (OUTOFBOUNDS i :: stack)
+            | _ ->
             let dict = DICTIONARY (Hashtbl.create size) in
             a.(i) <- dict; eval_rpn input vars (dict :: stack)
+          )
           | INT size :: DICT :: STR s :: DICTIONARY d :: stack ->
             let dict = DICTIONARY (Hashtbl.create size) in
             Hashtbl.replace d s dict; eval_rpn input vars (dict :: stack)
@@ -804,6 +819,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           )
           | INT i :: ARRAY a :: stack -> (
             match a.(i) with
+            | exception _ -> eval_rpn input vars (OUTOFBOUNDS i :: stack)
             | INT j ->
               let v = INT (j + 1) in
               a.(i) <- v; eval_rpn input vars (v :: stack)
@@ -830,6 +846,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           )
           | INT i :: ARRAY a :: stack -> (
             match a.(i) with
+            | exception _ -> eval_rpn input vars (OUTOFBOUNDS i :: stack)
             | INT j ->
               let v = INT (j - 1) in
               a.(i) <- v; eval_rpn input vars (v :: stack)
@@ -856,6 +873,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           )
           | INT i :: ARRAY a :: stack -> (
             match a.(i) with
+            | exception _ -> eval_rpn input vars (OUTOFBOUNDS i :: stack)
             | INT j ->
               let v = INT (j + 1) in
               a.(i) <- v; eval_rpn input vars (INT j :: stack)
@@ -882,6 +900,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           )
           | INT i :: ARRAY a :: stack -> (
             match a.(i) with
+            | exception _ -> eval_rpn input vars (OUTOFBOUNDS i :: stack)
             | INT j ->
               let v = INT (j - 1) in
               a.(i) <- v; eval_rpn input vars (INT j :: stack)
@@ -904,8 +923,11 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             match Hashtbl.find d a, first with
             | exception Not_found ->
               eval_rpn input vars (UNDEFINED a :: stack)
-            | STR s, INT i ->
-              eval_rpn input vars (CHAR s.[i] :: stack)
+            | STR s, INT i -> (
+              match s.[i] with
+              | exception _ -> eval_rpn input vars (OUTOFBOUNDS i :: stack)
+              | c -> eval_rpn input vars (CHAR c :: stack)
+            )
             | DICTIONARY d, INT i -> 
               STR (string_of_int i) :: DICTIONARY d :: stack
               |> eval_rpn input vars
@@ -914,8 +936,12 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           )
           | first :: INT i :: ARRAY a :: stack -> (
             match a.(i), first with
-            | STR s, INT i ->
-              eval_rpn input vars (CHAR s.[i] :: stack)
+            | exception _ -> eval_rpn input vars (OUTOFBOUNDS i :: stack)
+            | STR s, INT i -> (
+              match s.[i] with
+              | exception _ -> eval_rpn input vars (OUTOFBOUNDS i :: stack)
+              | c -> eval_rpn input vars (CHAR c :: stack)
+            )
             | DICTIONARY d, INT i -> 
               STR (string_of_int i) :: DICTIONARY d :: stack
               |> eval_rpn input vars
@@ -927,15 +953,21 @@ let interpreter (tokens : token list) (arg_offset : int) = (
               eval_rpn input vars (UNDEFINED n :: stack)
             | ARRAY a ->
               eval_rpn input vars (INT i :: ARRAY a :: stack)
-            | STR s ->
-              eval_rpn input vars (CHAR s.[i] :: stack)
+            | STR s -> (
+              match s.[i] with
+              | exception _ -> eval_rpn input vars (OUTOFBOUNDS i :: stack)
+              | c -> eval_rpn input vars (CHAR c :: stack)
+            )
             | DICTIONARY d ->
               STR (string_of_int i) :: DICTIONARY d :: stack
               |> eval_rpn input vars
             | tok -> raise (InvalidToken (tok, "at DREF"))
           )
-          | INT i :: STR s :: stack ->
-            eval_rpn input vars (CHAR s.[i] :: stack)
+          | INT i :: STR s :: stack -> (
+            match s.[i] with
+            | exception _ -> eval_rpn input vars (OUTOFBOUNDS i :: stack)
+            | c -> eval_rpn input vars (CHAR c :: stack)
+          )
           | STR attr :: NAME n :: stack -> (
             match StrMap.find n vars with
             | exception Not_found -> eval_rpn input vars (UNDEFINED n :: stack)
@@ -1340,12 +1372,13 @@ let interpreter (tokens : token list) (arg_offset : int) = (
         | CATCH -> (
           let stack = dref stack 1 in
           match stack with
-          | EOF         :: stack
-          | SCAN_ERR    :: stack
-          | TONUM_ERR _ :: stack
-          | UNDEFINED _ :: stack
-          | NOT_FOUND _ :: stack -> eval_rpn input vars (BOOL  true :: stack)
-          | _           :: stack -> eval_rpn input vars (BOOL false :: stack)
+          | EOF           :: stack
+          | SCAN_ERR      :: stack
+          | TONUM_ERR _   :: stack
+          | UNDEFINED _   :: stack
+          | NOT_FOUND _   :: stack
+          | OUTOFBOUNDS _ :: stack -> eval_rpn input vars (BOOL  true :: stack)
+          | _             :: stack -> eval_rpn input vars (BOOL false :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at CATCH"))
         )
         | READ -> (
@@ -1386,7 +1419,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           | INT  i :: stack ->
             eval_rpn input vars (CHAR (Char.chr i) :: stack)
           | STR  s :: stack ->
-            eval_rpn input vars (CHAR (s.[0]) :: stack)
+            if String.length s >= 1 
+            then eval_rpn input vars (CHAR  (s.[0]) :: stack)
+            else eval_rpn input vars (OUTOFBOUNDS 0 :: stack)
           | CHAR _ :: _     ->
             eval_rpn input vars stack
           | stack -> raise (InvalidToken (LIST stack, "at TOCHAR"))

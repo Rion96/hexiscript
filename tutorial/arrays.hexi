@@ -54,3 +54,9 @@ for let i 0; i < 3; i++
   endfor
   println "|"
 endfor
+
+# Check for out of bounds with catch:
+let x     arr 1
+let x[0] "Hello"
+println "Out of bounds? " + catch x[1]
+println "Out of bounds? " + catch x[0][123]
