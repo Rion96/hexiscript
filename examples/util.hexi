@@ -133,11 +133,15 @@ endfun
 
 fun array_print a
   let n len a - 1
-  print "{"
-  for let i 0; i < n; i++
-    print tostr a[i] + ", "
-  endfor
-  println tostr a[n] + "}"
+  if n < 0
+    println "{}"
+  else
+    print "{"
+    for let i 0; i < n; i++
+      print tostr a[i] + ", "
+    endfor
+    println tostr a[n] + "}"
+  endif
 endfun
 
 # Uses function "compare" to determine ordering
@@ -227,7 +231,7 @@ fun heap_poll heap
     sift_down heap 0
     return elem
   else
-    print "Heap is empty!"
+    println "Heap is empty!"
     return 0
   endif
 endfun

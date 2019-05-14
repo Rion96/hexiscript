@@ -1,0 +1,56 @@
+# DFA
+
+fun main
+  format("Hello")
+  format("b")
+  format("ad")
+  format("aced")
+  format("acedfed")
+endfun
+
+fun format word
+  if check(word)
+    println word + " is in Languge!"
+  else
+    println word + " is NOT in language!"
+  endif
+endfun
+
+fun transition from c
+  if from = 0
+    if c = 'a'
+      return 1
+    elif c = 'b'
+      return 2
+    endif
+  elif from = 1
+    if c = 'c'
+      return 3
+    elif c = 'd'
+      return 2
+    endif
+  elif from = 2
+    if c = 'f'
+      return 3
+    endif
+  elif from = 3
+    if c = 'e'
+      return 1
+    endif
+  endif
+  return (-1)
+endfun
+
+fun terminated state
+  return state = 2
+endfun
+
+fun check word
+  let state 0
+  for let i 0; i < len word; i++
+    let state (transition state word[i])
+  endfor
+  return terminated(state)
+endfun
+
+main()
