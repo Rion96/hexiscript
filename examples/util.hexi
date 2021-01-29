@@ -84,7 +84,12 @@ fun rev_order a b
   endif
 endfun
 
+# Overwrite compare for general types
 fun compare a b; return nat_order a b; endfun
+
+fun min x y; if compare y x < 0; return y; else return x; endif; endfun
+
+fun max x y; if compare x y < 0; return y; else return x; endif; endfun
 
 fun dict_copy d
   let n   len d
@@ -148,7 +153,6 @@ fun array_print a
   endif
 endfun
 
-# Uses function "compare" to determine ordering
 fun array_sort h
   fun sift_down h n index
     while index * 2 + 1 < n
@@ -226,6 +230,47 @@ fun array_intersect a b
   return array_copy res
 endfun
 
+fun folder acc x; return acc + x; endfun
+fun array_fold acc a
+  let la len a
+  for let i 0; i < la; i++
+    let acc (folder acc a[i])
+  endfor
+  return acc
+endfun
+
+fun array_sum a
+  fun folder acc x; return acc + x; endfun
+  return array_fold 0 a;
+endfun
+
+fun mapper x; return toint x; endfun
+fun array_map a
+  let la len a
+  let a array_copy a
+  for let i 0; i < la; i++
+    let a[i] (mapper a[i])
+  endfor
+  return a
+endfun
+
+# Fast way to initialize arrays
+fun array_quick s delim type
+  let res string_split s delim
+  let res array_copy res
+  if type = "int"
+    fun mapper x; return toint x; endfun
+    let res array_map res
+  elif type = "bool"
+    fun mapper x; if x = "true"; return true; else return false; endif; endfun
+    let res array_map res
+  elif type = "float"
+    fun mapper x; return tonum x; endfun
+    let res array_map res
+  endif
+  return res
+endfun
+
 # Heap functions
 # Uses function "compare" to determine ordering
 fun heap_create size
@@ -286,13 +331,28 @@ endfun
 
 # Unbalanced Binary Tree
 fun tree_create init
-  let tree    arr  3
-  let tree[0] init
-  let tree[1] null
-  let tree[2] null
-  return tree
+  let t    arr  3
+  let t[0] init
+  let t[1] null
+  let t[2] null
+  return t
 endfun
 fun set_empty; return null; endfun
+
+# Turns tree into (sorted) array (inorder)
+fun tree_flatten t
+  let elem 0; let left 1; let right 2
+  if t = null; return arr 0
+  else
+    let e    arr 1
+    let e[0] t[elem]
+    let tl   (tree_flatten t[left] )
+    let tr   (tree_flatten t[right])
+    let tl   (array_concat tl e    )
+    return array_concat tl tr
+  endif
+endfun
+fun array_of_set t; return tree_flatten t; endfun
 
 # Turns array into tree (Assumes sortedness!)
 fun tree_of_array a
@@ -310,21 +370,6 @@ fun tree_of_array a
   return recurse a 0 (len a - 1)
 endfun
 fun set_of_array a; return tree_of_array a; endfun
-
-# Turns tree into (sorted) array (inorder)
-fun tree_flatten t
-  let elem 0; let left 1; let right 2
-  if t = null; return arr 0
-  else
-    let e    arr 1
-    let e[0] t[elem]
-    let tl   (tree_flatten t[left] )
-    let tr   (tree_flatten t[right])
-    let tl   (array_concat tl e    )
-    return array_concat tl tr
-  endif
-endfun
-fun array_of_set t; return tree_flatten t; endfun
 
 # Creates a balanced copy of t
 fun tree_balance t; return tree_of_array (tree_flatten t); endfun
@@ -360,7 +405,7 @@ fun tree_find t e
     return t
   endif
 endfun
-fun set_member t e; return tree_find t e; endfun
+fun set_member t e; return null != tree_find t e; endfun
 
 fun tree_min t
   let elem 0; let left 1; let right 2
@@ -442,5 +487,24 @@ endfun
 
 fun tree_delete_tree a b; return tree_delete_array a (tree_flatten b); endfun
 fun set_minus a b; return tree_delete_tree a b; endfun
+
+fun tree_sum t
+  let elem 0; let left 1; let right 2
+  if t = null; return 0; endif
+  return tree_sum t[left] + t[elem] + tree_sum t[right]
+endfun
+fun set_sum t; return tree_sum t; endfun
+
+fun tree_quick s delim type
+  let s  array_quick s delim type
+  let ls len s
+  if ls = 0; return null; endif
+  let res tree_create s[0]
+  for let i 1; i < ls; i++
+    tree_insert res s[i]
+  endfor
+  return tree_balance res
+endfun
+fun set_quick s delim type; return tree_quick s delim type; endfun
 
 endif # UTIL_HEXI
