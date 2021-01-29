@@ -1,0 +1,97 @@
+# Sudoku Solver
+include "util.hexi"
+
+fun EXAMPLE
+0 9 0 7 0 0 0 6 0
+0 0 0 2 3 0 1 0 0
+3 1 5 0 0 0 0 0 0
+0 0 6 0 1 0 0 3 0
+8 0 2 0 0 0 0 0 9
+9 0 0 0 0 3 0 0 4
+0 0 8 0 0 6 7 0 0
+0 4 0 0 7 0 8 2 0
+0 0 0 8 4 0 0 0 0
+endfun
+
+fun nextPos board x
+  let out arr 2
+  for let i x; i < 9; i++
+    for let j 0; j < 9; j++
+      if board[i][j] = 0
+        let out[0] i
+        let out[1] j
+        return out
+      endif
+    endfor
+  endfor
+  let out[0] 9
+  let out[1] 9
+  return out
+endfun
+
+fun backtrack board pos
+  let x pos[0]
+  let y pos[1]
+  println "(" + x + "," + y + ")"
+  if x = 9; return true; endif
+  let blockx (x - (x % 3))
+  let blocky (y - (y % 3))
+  for let n 1; n <= 9; n++
+    let doable true
+    for let i 0; i < 3; i++
+      for let j 0; j < 3; j++
+        if board[i + blockx][j + blocky] = n
+          let doable false
+        endif
+      endfor
+    endfor
+    if doable
+      for let i 0; i < 9; i++
+        if board[x][i] = n || board[i][y] = n
+          let doable false
+        endif
+      endfor
+      if doable
+        println "Attempting n=" + n
+        let board[x][y] n
+        if backtrack board (nextPos board x)
+          return true
+        endif
+        let board[x][y] 0
+      endif
+    endif
+  endfor
+  return false
+endfun
+
+fun printBoard board
+  let out "\n"
+  let line ""
+  for let i 0; i < 9; i++
+    for let j 0; j < 9; j++
+      if len line = 6 || len line = 14
+        let line (line + "| ")
+      endif
+      let line (line + board[i][j] + " ")
+    endfor
+    let out (out + line + "\n")
+    let line ""
+    if i = 2 || i = 5
+      let out (out + "----------------------\n")
+    endif
+  endfor
+  println out
+endfun
+
+let board arr 9
+for let i 0; i < 9; i++
+  let board[i] arr 9
+  let s (scan str)
+  let s (string_split s ' ')
+    for let j 0; j < 9; j++
+    let board[i][j] (toint s[j])
+  endfor
+endfor
+
+backtrack  board (nextPos board 0)
+printBoard board

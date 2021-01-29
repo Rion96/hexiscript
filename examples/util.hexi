@@ -1,6 +1,10 @@
 # hexiscript util functions
 if catch UTIL_HEXI # Like #ifndef in C
-let UTIL_HEXI true
+
+# Consts
+fun UTIL_HEXI; return true; endfun
+fun null;      return 0; endfun
+fun pi;        return 3.141592654; endfun
 
 fun toint s
   let n tonum s
@@ -117,7 +121,7 @@ fun array_filter a elem
   let out   dict n
   let index 0
   for let i 0; i < n; i++
-    if a[i] != elem
+    if compare a[i] elem != 0
       let out[index++] a[i]
     endif
   endfor
@@ -178,6 +182,50 @@ fun array_sort h
   endwhile
 endfun
 
+fun array_concat a b
+  let la len a
+  let lb len b
+  let c  arr (la + lb)
+  for let i 0; i < la; i++
+    let c[i] a[i]
+  endfor
+  for let i la; i < la + lb; i++
+    let c[i] b[i - la]
+  endfor
+  return c
+endfun
+
+# Subset operation (Assumes sortedness!)
+fun array_subset a b
+  let la len a; let lb len b
+  if lb < la; return false; endif
+  for let i 0; i < la; i++
+    let j 0
+    while compare b[j] a[i] < 0; j++; endwhile
+    if compare b[j] a[i] != 0; return false; endif
+  endfor
+  return true
+endfun
+
+# Intersect operation (Assumes sortedness!)
+fun array_intersect a b
+  let la len a; let lb len b
+  if la = 0 || lb = 0; return arr 0; endif
+  let x 0; let y 0; let r 0
+  let res dict (la + lb)
+  while x < la && y < lb
+    if   compare a[x] b[y] < 0; x++
+    elif compare b[y] a[x] < 0; y++
+    elif a[x] = b[y]
+      let res[r++] a[x]
+      if x < la; x++; else y++; endif
+    else
+      break
+    endif
+  endwhile
+  return array_copy res
+endfun
+
 # Heap functions
 # Uses function "compare" to determine ordering
 fun heap_create size
@@ -235,5 +283,164 @@ fun heap_poll heap
     return 0
   endif
 endfun
+
+# Unbalanced Binary Tree
+fun tree_create init
+  let tree    arr  3
+  let tree[0] init
+  let tree[1] null
+  let tree[2] null
+  return tree
+endfun
+fun set_empty; return null; endfun
+
+# Turns array into tree (Assumes sortedness!)
+fun tree_of_array a
+  fun recurse a from to
+    if to < from; return null; endif
+    if to = from; return tree_create a[from]; endif
+    let left 1; let right 2
+    let pivot    from + (to - from) / 2
+    let t        tree_create a[pivot]
+    let t[left]  recurse a from (pivot - 1)
+    let t[right] recurse a (pivot + 1) to
+    return t
+  endfun
+  if len a = 0; return null; endif
+  return recurse a 0 (len a - 1)
+endfun
+fun set_of_array a; return tree_of_array a; endfun
+
+# Turns tree into (sorted) array (inorder)
+fun tree_flatten t
+  let elem 0; let left 1; let right 2
+  if t = null; return arr 0
+  else
+    let e    arr 1
+    let e[0] t[elem]
+    let tl   (tree_flatten t[left] )
+    let tr   (tree_flatten t[right])
+    let tl   (array_concat tl e    )
+    return array_concat tl tr
+  endif
+endfun
+fun array_of_set t; return tree_flatten t; endfun
+
+# Creates a balanced copy of t
+fun tree_balance t; return tree_of_array (tree_flatten t); endfun
+fun set_copy t; return tree_balance t; endfun
+
+fun tree_insert t e
+  let elem 0; let left 1; let right 2
+  if 0 < compare t[elem] e
+    if t[left] = null
+      let t[left] (tree_create e)
+    else
+      tree_insert t[left] e
+    endif
+  elif compare t[elem] e < 0
+    if t[right] = null
+      let t[right] (tree_create e)
+    else
+      tree_insert t[right] e
+    endif
+  endif
+  return t
+endfun
+fun set_insert t e; if t = null; return tree_create e; else return tree_insert t e; endif; endfun
+
+fun tree_find t e
+  let elem 0; let left 1; let right 2
+  if t = null; return null; endif
+  if 0 < compare t[elem] e
+    return tree_find t[left] e
+  elif compare t[elem] e < 0
+    return tree_find t[right] e
+  else
+    return t
+  endif
+endfun
+fun set_member t e; return tree_find t e; endfun
+
+fun tree_min t
+  let elem 0; let left 1; let right 2
+  if t = null; return null
+  elif t[left] = null; return t[elem]
+  else return tree_min t[left]; endif
+endfun
+fun Min t; return tree_min t; endfun
+
+fun tree_max t
+  let elem 0; let left 1; let right 2
+  if t = null; return null
+  elif t[right] = null; return t[elem]
+  else return tree_max t[right]; endif
+endfun
+fun Max t; return tree_max t; endfun
+
+fun tree_delete t e
+  let elem 0; let left 1; let right 2
+  if t = null; return null; endif
+  if 0 < compare t[elem] e
+    let t[left] tree_delete t[left] e
+  elif compare t[elem] e < 0
+    let t[right]  tree_delete t[right] e
+  else
+    if t[right] = null; return t[left]
+    else
+      let min tree_min t[right]
+      let t[right]     tree_delete t[right] min
+      let t[elem]      min
+    endif
+  endif
+  return t
+endfun
+fun set_delete t e; return tree_delete t e; endfun
+
+fun tree_size t
+  let left 1; let right 2
+  if t = null; return 0
+  else return tree_size t[left] + 1 + tree_size t[right]; endif
+endfun
+fun card t; return tree_size t; endfun
+
+fun tree_print t; array_print tree_flatten t; endfun
+fun set_print t; tree_print t; endfun
+
+fun tree_join a b
+  if b = null; return a; endif
+  if a = null; return b; endif
+  # Rebalance the larger tree, flatten the smaller
+  if len a < len b
+    let t tree_balance b
+    let a tree_flatten a
+  else
+    let t tree_balance a
+    let a tree_flatten b
+  endif
+  let l len a
+  for let i 0; i < l; i++
+    tree_insert t a[i]
+  endfor
+  return t
+endfun
+fun set_union a b; return tree_join a b; endfun
+
+fun tree_subset a b; return array_subset (tree_flatten a) (tree_flatten b); endfun
+fun set_subset a b; return tree_subset a b; endfun
+
+fun tree_intersect a b; return tree_of_array array_intersect (tree_flatten a) (tree_flatten b); endfun
+fun set_intersect a b; return tree_intersect a b; endfun
+
+fun tree_delete_array t a
+  let la len a
+  for let i 0; i < la; i++
+    let t tree_delete t a[i]
+  endfor
+  return t
+endfun
+
+fun tree_delete_tree a b; return tree_delete_array a (tree_flatten b); endfun
+fun set_minus a b; return tree_delete_tree a b; endfun
 
 endif # UTIL_HEXI

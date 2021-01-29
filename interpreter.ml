@@ -1231,6 +1231,16 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn input vars (v :: stack)
           | CHAR b :: CHAR a :: stack ->
             eval_rpn input vars (BOOL (a <> b) :: stack)
+          | BOOL b :: BOOL a :: stack ->
+            eval_rpn input vars (BOOL (a <> b) :: stack)
+          | ARRAY _ :: _ :: stack ->
+            eval_rpn input vars ((BOOL true) :: stack)
+          | _ :: ARRAY _ :: stack ->
+            eval_rpn input vars ((BOOL true) :: stack)
+          | DICTIONARY _ :: _ :: stack ->
+            eval_rpn input vars ((BOOL true) :: stack)
+          | _ :: DICTIONARY _ :: stack ->
+            eval_rpn input vars ((BOOL true) :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at NEQ"))
         )
         | EQ -> (
@@ -1250,6 +1260,16 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn input vars (v :: stack)
           | CHAR b :: CHAR a :: stack ->
             eval_rpn input vars (BOOL (a = b) :: stack)
+          | BOOL b :: BOOL a :: stack ->
+            eval_rpn input vars (BOOL (a = b) :: stack)
+          | ARRAY _ :: _ :: stack ->
+            eval_rpn input vars ((BOOL false) :: stack)
+          | _ :: ARRAY _ :: stack ->
+            eval_rpn input vars ((BOOL false) :: stack)
+          | DICTIONARY _ :: _ :: stack ->
+            eval_rpn input vars ((BOOL false) :: stack)
+          | _ :: DICTIONARY _ :: stack ->
+            eval_rpn input vars ((BOOL false) :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at EQ"))
         )
         | AND -> (
