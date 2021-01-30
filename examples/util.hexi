@@ -337,6 +337,15 @@ fun array_sub a from to
   return ret
 endfun
 
+fun array_interval from to
+  assert (from <= to) ("array_interval: from=" + from + ", to=" + to)
+  let a arr (to - from)
+  for let i from; i < to; i++
+    let a[i - from] i
+  endfor
+  return a
+endfun
+
 # Heap functions
 # Uses function "compare" to determine ordering
 fun heap_create size
@@ -422,8 +431,8 @@ endfun
 fun array_of_tree t; return tree_flatten t; endfun
 fun array_of_set t; return tree_flatten t; endfun
 
-# Turns array into tree (Assumes sortedness!)
-fun tree_of_array a
+# Turns array into tree (Assumes sortedness, no duplicates!)
+fun tree_of_array_unsafe a
   fun recurse a from to
     if to < from; return null; endif
     if to = from; return tree_create a[from]; endif
@@ -437,10 +446,22 @@ fun tree_of_array a
   if len a = 0; return null; endif
   return recurse a 0 (len a - 1)
 endfun
+fun set_of_array_unsafe a; return tree_of_array_unsafe a; endfun
+
+# Slower, but works on all arrays
+fun tree_of_array a
+  let la len a
+  if la = 0; return null; endif
+  let ret tree_create a[0]
+  for let i 1; i < la; i++
+    tree_insert ret a[i]
+  endfor
+  return tree_balance ret
+endfun
 fun set_of_array a; return tree_of_array a; endfun
 
 # Creates a balanced copy of t
-fun tree_balance t; return tree_of_array (tree_flatten t); endfun
+fun tree_balance t; return tree_of_array_unsafe (tree_flatten t); endfun
 fun set_copy t; return tree_balance t; endfun
 
 fun tree_insert t e
@@ -544,7 +565,7 @@ fun set_union a b; return tree_join a b; endfun
 fun tree_subset a b; return array_subset (tree_flatten a) (tree_flatten b); endfun
 fun set_subset a b; return tree_subset a b; endfun
 
-fun tree_intersect a b; return tree_of_array array_intersect (tree_flatten a) (tree_flatten b); endfun
+fun tree_intersect a b; return tree_of_array_unsafe array_intersect (tree_flatten a) (tree_flatten b); endfun
 fun set_intersect a b; return tree_intersect a b; endfun
 
 fun tree_delete_array t a
@@ -565,16 +586,7 @@ fun tree_sum t
 endfun
 fun set_sum t; return tree_sum t; endfun
 
-fun tree_quick s delim type
-  let s  array_quick s delim type
-  let ls len s
-  if ls = 0; return null; endif
-  let res tree_create s[0]
-  for let i 1; i < ls; i++
-    tree_insert res s[i]
-  endfor
-  return tree_balance res
-endfun
+fun tree_quick s delim type; return tree_of_array (array_quick s delim type); endfun
 fun set_quick s delim type; return tree_quick s delim type; endfun
 
 fun tree_fold acc t; return array_fold acc (array_of_tree t); endfun
@@ -589,6 +601,9 @@ fun set_compare a b
   let sb (array_fold "" sb)
   return string_compare sa sb
 endfun
+
+fun tree_interval from to; return tree_of_array_unsafe (array_interval from to); endfun
+fun set_interval from to; return tree_interval from to; endfun
 
 # Split string using multiple delimiters (char set!)
 fun string_splits s delims
