@@ -6,12 +6,45 @@ fun UTIL_HEXI; return true; endfun
 fun null;      return 0; endfun
 fun pi;        return 3.141592654; endfun
 
+# TODO: Add assertions to all library functions where needed
+fun assert a s; if !a; println "Assert_Error Message: " + s; throw Assert_Error; endif; endfun
+
+fun to_upper s
+  let out ""
+  let l   len s
+  for let i 0; i < l; i++
+    if s[i] >= 'a' && s[i] <= 'z'
+      let out (out + tochar (s[i] - 32))
+    else
+      let out (out + s[i])
+    endif
+  endfor
+  return out
+endfun
+
+fun to_lower s
+  let out ""
+  let l   len s
+  for let i 0; i < l; i++
+    if s[i] >= 'A' && s[i] <= 'Z'
+      let out (out + tochar (s[i] + 32))
+    else
+      let out (out + s[i])
+    endif
+  endfor
+  return out
+endfun
+
 fun toint s
   let n tonum s
-  if catch n
-    return n
-  endif
+  if catch n; return n; endif
   return floor n
+endfun
+
+fun tofloat s
+  let n tonum s
+  if catch n; return n; endif
+  return n + 0.
 endfun
 
 fun string_filter s elem
@@ -39,9 +72,9 @@ fun string_trim s
 endfun
 
 fun string_compare a b
-  let min len a
-  if len b < len a; let min len b; endif
-  for let i 0; i < min; i++
+  let min_l len a
+  if len b < len a; let min_l len b; endif
+  for let i 0; i < min_l; i++
     if a[i] != b[i]; return a[i] - b[i]; endif
   endfor
   return len a - len b
@@ -60,6 +93,16 @@ fun string_split s delim
       continue
     endif
     let ret[j] (ret[j] + s[i])
+  endfor
+  return ret
+endfun
+
+fun string_sub s from to
+  let ls len s
+  assert (0 <= from && from <= to && to <= ls) ("string_sub: from=" + from + ", to=" + to)
+  let ret ""
+  for let i from; i < to; i++
+    let ret (ret + s[i])
   endfor
   return ret
 endfun
@@ -149,9 +192,11 @@ fun array_print a
     for let i 0; i < n; i++
       print tostr a[i] + ", "
     endfor
-    println tostr a[n] + "}"
+    print tostr a[n] + "}"
   endif
 endfun
+
+fun array_println a; array_print a; println ""; endfun
 
 fun array_sort h
   fun sift_down h n index
@@ -267,8 +312,29 @@ fun array_quick s delim type
   elif type = "float"
     fun mapper x; return tonum x; endfun
     let res array_map res
+  elif type = "char"
+    fun mapper x; return tochar x; endfun
+    let res array_map res
   endif
   return res
+endfun
+
+fun array_member a x
+  let la len a
+  for let i 0; i < la; i++
+    if a[i] = x; return true; endif
+  endfor
+  return false
+endfun
+
+fun array_sub a from to
+  let la len a
+  assert (0 <= from && from <= to && to <= la) ("array_sub: from=" + from + ", to=" + to)
+  let ret arr (to - from)
+  for let i from; i < to; i++
+    let ret[i - from] a[i]
+  endfor
+  return ret
 endfun
 
 # Heap functions
@@ -337,6 +403,7 @@ fun tree_create init
   let t[2] null
   return t
 endfun
+fun set_create init; return tree_create init; endfun
 fun set_empty; return null; endfun
 
 # Turns tree into (sorted) array (inorder)
@@ -352,6 +419,7 @@ fun tree_flatten t
     return array_concat tl tr
   endif
 endfun
+fun array_of_tree t; return tree_flatten t; endfun
 fun array_of_set t; return tree_flatten t; endfun
 
 # Turns array into tree (Assumes sortedness!)
@@ -433,9 +501,9 @@ fun tree_delete t e
   else
     if t[right] = null; return t[left]
     else
-      let min tree_min t[right]
-      let t[right]     tree_delete t[right] min
-      let t[elem]      min
+      let min_t tree_min t[right]
+      let t[right]     tree_delete t[right] min_t
+      let t[elem]      min_t
     endif
   endif
   return t
@@ -450,7 +518,9 @@ endfun
 fun card t; return tree_size t; endfun
 
 fun tree_print t; array_print tree_flatten t; endfun
+fun tree_println t; array_println tree_flatten t; endfun
 fun set_print t; tree_print t; endfun
+fun set_println t; tree_println t; endfun
 
 fun tree_join a b
   if b = null; return a; endif
@@ -506,5 +576,118 @@ fun tree_quick s delim type
   return tree_balance res
 endfun
 fun set_quick s delim type; return tree_quick s delim type; endfun
+
+fun tree_fold acc t; return array_fold acc (array_of_tree t); endfun
+fun set_fold acc t; return tree_fold acc t; endfun
+
+# Compare sets using string_compare
+fun set_compare a b
+  fun folder acc x; return acc + x; endfun
+  let sa array_of_set a
+  let sb array_of_set b
+  let sa (array_fold "" sa)
+  let sb (array_fold "" sb)
+  return string_compare sa sb
+endfun
+
+# Split string using multiple delimiters (char set!)
+fun string_splits s delims
+  let ret    dict 32
+  let l      len s
+  let j      0
+  let ret[0] ""
+  for let i 0; i < l; i++
+    if set_member delims s[i]
+      if len ret[j] > 0
+        let ret[++j] ""
+      endif
+      continue
+    endif
+    let ret[j] (ret[j] + s[i])
+  endfor
+  return ret
+endfun
+
+# Linked List
+fun list_create init
+  let l    arr 2
+  let l[0] init
+  let l[1] null
+  return l
+endfun
+fun stack_create init; return list_create init; endfun
+
+fun list_prepend l e
+  let h    (list_create e)
+  let h[1] l
+  return h
+endfun
+fun stack_push s e; return list_prepend s e; endfun
+
+fun list_append l e
+  if l[1] = null; let l[1] (list_create e)
+  else list_append l[1] e; endif
+endfun
+
+fun list_head l
+  if l = null; return null; endif
+  return l[0]
+endfun
+fun stack_poll s; return list_head s; endfun
+
+fun list_poll l i
+  if l = null; return null; endif
+  if i <= 0; return l[0]; endif
+  return list_poll l[1] (i - 1)
+endfun
+
+fun list_pop l i
+  if l = null; return null; endif
+  if i <= 0; return l[1]; endif
+  let l[1] list_pop l[1] (i - 1)
+  return l
+endfun
+
+fun stack_pop s
+  if s = null; return null; endif
+  return s[1]
+endfun
+
+fun list_size l
+  if l = null; return 0; endif
+  return 1 + list_size l[1]
+endfun
+fun stack_size s; return list_size s; endfun
+
+fun array_of_list l
+  if l = null; return arr 0; endif
+  let e arr 1; let e[0] l[0]
+  return array_concat e (array_of_list l[1])
+endfun
+
+fun list_of_array a
+  if len a = 0; return null; endif
+  let la len a - 1
+  let l list_create a[la--]
+  while 0 <= la
+    let l list_prepend l a[la--]
+  endwhile
+  return l
+endfun
+
+fun list_print l; array_print (array_of_list l); endfun
+fun list_println l; array_println (array_of_list l); endfun
+fun stack_print s; list_print s; endfun
+fun stack_println s; stack_print s; endfun
+
+fun list_quick s delim type
+  let a array_quick s delim type
+  return list_of_array a
+endfun
+
+fun list_map l; return list_of_array (array_map (array_of_list l)); endfun
+fun stack_map s; return list_map s; endfun
+fun list_fold acc l; return array_fold acc (array_of_list l); endfun
+fun stack_fold acc s; return list_fold acc s; endfun
 
 endif # UTIL_HEXI

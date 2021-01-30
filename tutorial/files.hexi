@@ -60,7 +60,7 @@ fun main
 endfun
 
 fun pause
-  print "Press any key to continue..."
+  print "Press Enter to continue..."
   scan str
 endfun
 

@@ -1360,6 +1360,8 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             with _ -> try FLOAT (float_of_string s)
             with _ -> TONUM_ERR s in
             eval_rpn input vars (num :: stack)
+          | t :: stack ->
+            eval_rpn input vars (TONUM_ERR (" (" ^ string_of_token t ^ ")") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at TONUM"))
         )
         | OPENIN -> (
