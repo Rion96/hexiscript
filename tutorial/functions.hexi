@@ -1,4 +1,4 @@
-# Functions are defined as such:
+# Functions are defined as follows:
 # Syntax: 
 # fun [NAME] [ARG_1] ... [ARG_N]
 #   [BODY]

@@ -3,10 +3,10 @@ if catch UTIL_HEXI # Like #ifndef in C
 
 # Consts
 fun UTIL_HEXI; return true; endfun
-fun null;      return 0; endfun
-fun pi;        return 3.141592654; endfun
+fun null     ; return 0; endfun
+fun pi       ; return 3.141592654; endfun
+fun euler    ; return 2.718281828; endfun
 
-# TODO: Add assertions to all library functions where needed
 fun assert a s; if !a; println "Assert_Error Message: " + s; throw Assert_Error; endif; endfun
 
 fun to_upper s
@@ -186,7 +186,7 @@ endfun
 fun array_print a
   let n len a - 1
   if n < 0
-    println "{}"
+    print "{}"
   else
     print "{"
     for let i 0; i < n; i++
@@ -297,6 +297,23 @@ fun array_map a
     let a[i] (mapper a[i])
   endfor
   return a
+endfun
+
+fun array_create l x
+  let a arr l
+  array_fill a x
+  return a
+endfun
+
+fun matrix_create x y
+  fun mapper x; return arr x; endfun
+  return array_map array_create x y
+endfun
+
+fun matrix_print a
+  for let i 0; i < len a; i++
+    array_println a[i]
+  endfor
 endfun
 
 # Fast way to initialize arrays
@@ -502,7 +519,7 @@ fun tree_min t
   elif t[left] = null; return t[elem]
   else return tree_min t[left]; endif
 endfun
-fun Min t; return tree_min t; endfun
+fun set_min t; return tree_min t; endfun
 
 fun tree_max t
   let elem 0; let left 1; let right 2
@@ -510,7 +527,7 @@ fun tree_max t
   elif t[right] = null; return t[elem]
   else return tree_max t[right]; endif
 endfun
-fun Max t; return tree_max t; endfun
+fun set_max t; return tree_max t; endfun
 
 fun tree_delete t e
   let elem 0; let left 1; let right 2
@@ -564,12 +581,12 @@ fun set_union a b; return tree_join a b; endfun
 
 fun tree_subset a b; return array_subset (tree_flatten a) (tree_flatten b); endfun
 fun set_subset a b; return tree_subset a b; endfun
-
 fun tree_intersect a b; return tree_of_array_unsafe array_intersect (tree_flatten a) (tree_flatten b); endfun
 fun set_intersect a b; return tree_intersect a b; endfun
 
 fun tree_delete_array t a
   let la len a
+  if la = 0; return t; endif
   for let i 0; i < la; i++
     let t tree_delete t a[i]
   endfor
@@ -588,7 +605,6 @@ fun set_sum t; return tree_sum t; endfun
 
 fun tree_quick s delim type; return tree_of_array (array_quick s delim type); endfun
 fun set_quick s delim type; return tree_quick s delim type; endfun
-
 fun tree_fold acc t; return array_fold acc (array_of_tree t); endfun
 fun set_fold acc t; return tree_fold acc t; endfun
 
@@ -603,7 +619,7 @@ fun set_compare a b
 endfun
 
 fun tree_interval from to; return tree_of_array_unsafe (array_interval from to); endfun
-fun set_interval from to; return tree_interval from to; endfun
+fun set_interval  from to; return tree_interval from to; endfun
 
 # Split string using multiple delimiters (char set!)
 fun string_splits s delims
@@ -690,19 +706,16 @@ fun list_of_array a
   return l
 endfun
 
-fun list_print l; array_print (array_of_list l); endfun
-fun list_println l; array_println (array_of_list l); endfun
-fun stack_print s; list_print s; endfun
-fun stack_println s; stack_print s; endfun
-
-fun list_quick s delim type
-  let a array_quick s delim type
-  return list_of_array a
-endfun
-
-fun list_map l; return list_of_array (array_map (array_of_list l)); endfun
-fun stack_map s; return list_map s; endfun
-fun list_fold acc l; return array_fold acc (array_of_list l); endfun
+# Simple function compositions
+fun list_quick  l delim type; return list_of_array (array_quick l delim type); endfun
+fun stack_quick s delim type; return list_quick s delim type; endfun
+fun list_print     l; array_print   (array_of_list l); endfun
+fun list_println   l; array_println (array_of_list l); endfun
+fun stack_print    s; list_print s; endfun
+fun stack_println  s; list_println s; endfun
+fun list_map       l; return list_of_array (array_map (array_of_list l)); endfun
+fun stack_map      s; return list_map s; endfun
+fun list_fold  acc l; return array_fold acc (array_of_list l); endfun
 fun stack_fold acc s; return list_fold acc s; endfun
 
 endif # UTIL_HEXI
