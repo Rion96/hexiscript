@@ -1,8 +1,8 @@
-# Hexiscript has a somewhat unusual scope
-# Note: catch returns true if variable/function undefined (see 'variables.hexi')
+# Hexiscript has somewhat unusual scoping
+# Note: "catch" returns true if variable/function undefined (see 'variables.hexi')
 
 # 1. Function Scope
-# As expected, variables do not carry in or out of a function's scope
+# As expected, local variables do not carry in or out of a function's scope
 let i 0
 fun f
   println "f: i is not defined here: " + (catch i)
@@ -11,7 +11,7 @@ endfun
 f()
 println "_: j is not defined here: " + (catch j)
 
-# Functions carry into a scope, but not out of it
+# Functions carry into a scope, but functions defined in a scope do not carry out of it
 fun f; return 0; endfun
 fun g
   println "g: f is defined here: " + (!(catch f))
@@ -31,29 +31,32 @@ fun f p pie
   println "pi  = " + p
   println "pie = " + pie
 endfun
-f pi "tasty"
+f pi "tasty" # Output: pi = tasty; pie = 3.14
 
-# To avoid this, use "define" to define global variables instead
-# Note that this still relies on functions under the hood (i.e., globals share namespace with functions)!
+# To avoid this, use "define" to define globals instead
+# Note that this still relies on functions under the hood
+# (i.e., globals share namespace with functions)!
 define pi 3.14
-f pi "tasty"
+f pi "tasty" # Output: pi = 3.14; pie = tasty
 
-# Unlike functions, however, define supports mutable arrays and dicts!
+# Unlike constant functions, however, "define" supports mutable arrays and dicts!
 define a arr 4
-let a[1] 1
-let a[2] 2
-let a[3] 3
+fun modify_global_array
+  let a[1] 1; let a[2] 2; let a[3] 3
+endfun
 fun print_global_array
+  print "a = "
   for let i 0; i < len a; i++
     print a[i] + " "
   endfor
   println ""
 endfun
+modify_global_array()
 print_global_array()
 
-# The variable itself cannot be modified, however!
+# The variable itself can only be modified using define!
 define x 0
-println "++x is not defined on globals: " + (catch (++x)) # Analogous for the other ++/-- operators
+println "++x does not work with definitions: " + (catch (++x)) # Analogous for let and the other ++/-- operators
 
 # 2. Block Scope
 # There is no block scope for local variables
@@ -76,6 +79,6 @@ while true
 endwhile
 println "_: i is not defined here: " + (catch i)
 
-# If blocks on the other hand have absolutely no block scope
+# If blocks on the other hand have no block scope in any case
 if true; define i 0; endif
 println "_: i is defined here: " + (!(catch i))

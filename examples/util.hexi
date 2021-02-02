@@ -11,8 +11,8 @@ define stdin     "/dev/stdin"
 define stdout    "/dev/stdout"
 define stderr    "/dev/stderr"
 
-fun assert a s; if !a; println "Assert_Error Message: " + s; throw Assert_Error; endif; endfun
-fun assertnot a s; assert (!a) s; endfun
+fun assertnot a s; if a; println "Assert_Error Message: " + s; throw Assert_Error; endif; endfun
+fun assert a s; assertnot (!a) s; endfun
 
 fun fprint f s
   let f openout f
@@ -376,6 +376,30 @@ fun array_interval from to
   return a
 endfun
 
+fun argcond acc x; return compare x acc < 0; endfun
+fun array_findarg a
+  let la len a
+  assert (0 < la) "array_findarg: Array is empty!"
+  let arg 0
+  let acc a[0]
+  for let i 1; i < la; i++
+    if argcond acc a[i]
+      let arg i; let acc a[i]
+    endif
+  endfor
+  return arg
+endfun
+
+fun array_minarg a
+  fun argcond acc x; return compare x acc < 0; endfun
+  return array_findarg a
+endfun
+
+fun array_maxarg a
+  fun argcond acc x; return 0 < compare x acc; endfun
+  return array_findarg a
+endfun
+
 # Heap functions
 # Uses function "compare" to determine ordering
 fun heap_create size
@@ -634,11 +658,6 @@ fun tree_sum t
 endfun
 fun set_sum t; return tree_sum t; endfun
 
-fun tree_quick s delim type; return tree_of_array (array_quick s delim type); endfun
-fun set_quick s delim type; return tree_quick s delim type; endfun
-fun tree_fold acc t; return array_fold acc (array_of_tree t); endfun
-fun set_fold acc t; return tree_fold acc t; endfun
-
 # Compare sets using string_compare
 fun set_compare a b
   fun folder acc x; return acc + x; endfun
@@ -649,6 +668,13 @@ fun set_compare a b
   return string_compare sa sb
 endfun
 
+# Simple function compositions
+fun tree_quick s delim type; return tree_of_array (array_quick s delim type); endfun
+fun set_quick s delim type; return tree_quick s delim type; endfun
+fun tree_fold acc t; return array_fold acc (array_of_tree t); endfun
+fun set_fold acc t; return tree_fold acc t; endfun
+fun tree_map t; return tree_of_array (array_map (array_of_tree t)); endfun
+fun set_map t; return tree_map t; endfun
 fun tree_interval from to; return tree_of_array_unsafe (array_interval from to); endfun
 fun set_interval  from to; return tree_interval from to; endfun
 

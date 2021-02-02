@@ -19,7 +19,7 @@ fun main
   for let i 0; i < 9; i++
     let s (scan str)
     let s (string_split s ' ')
-      for let j 0; j < 9; j++
+    for let j 0; j < 9; j++
       let board[i][j] (toint s[j])
     endfor
   endfor
