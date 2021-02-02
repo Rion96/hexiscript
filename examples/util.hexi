@@ -2,12 +2,25 @@
 if catch UTIL_HEXI # Like #ifndef in C
 
 # Consts
-fun UTIL_HEXI; return true; endfun
-fun null     ; return 0; endfun
-fun pi       ; return 3.141592654; endfun
-fun euler    ; return 2.718281828; endfun
+define UNDEFINED UTIL_HEXI # Use to delete functions/definions
+define UTIL_HEXI true
+define null      0
+define pi        3.141592654
+define euler     2.718281828
+define stdin     "/dev/stdin"
+define stdout    "/dev/stdout"
+define stderr    "/dev/stderr"
 
 fun assert a s; if !a; println "Assert_Error Message: " + s; throw Assert_Error; endif; endfun
+fun assertnot a s; assert (!a) s; endfun
+
+fun fprint f s
+  let f openout f
+  assertnot (catch f) "fprint: Could not open file!"
+  write s f
+  close f
+endfun
+fun fprintln f s; fprint f (s + "\n"); endfun
 
 fun to_upper s
   let out ""
@@ -357,8 +370,8 @@ endfun
 fun array_interval from to
   assert (from <= to) ("array_interval: from=" + from + ", to=" + to)
   let a arr (to - from)
-  for let i from; i < to; i++
-    let a[i - from] i
+  for let i 0; i < to - from; i++
+    let a[i] (i + from)
   endfor
   return a
 endfun
@@ -366,12 +379,15 @@ endfun
 # Heap functions
 # Uses function "compare" to determine ordering
 fun heap_create size
-  let heap         dict size
-  let heap["size"] 0
+  let heap           dict size + 2
+  let heap["size"]   0
+  let heap["_HEAP_"] true
   return heap
 endfun
 
-fun heap_insert heap elem
+fun heap_push heap elem
+  assert (heap != null) "heap_push: Null pointer"
+  assertnot (catch heap["_HEAP_"]) "heap_push: Not a heap!"
   fun sift_up heap index
     while (index - 1) / 2 >= 0
       let parent (index - 1) / 2
@@ -390,7 +406,9 @@ fun heap_insert heap elem
   sift_up heap index
 endfun
 
-fun heap_poll heap
+fun heap_pop heap
+  assert (heap != null) "heap_pop: Null pointer"
+  assertnot (catch heap["_HEAP_"]) "heap_pop: Not a heap!"
   fun sift_down heap index
     while index * 2 + 1 < heap["size"]
       let child index * 2 + 1
@@ -416,9 +434,21 @@ fun heap_poll heap
     sift_down heap 0
     return elem
   else
-    println "Heap is empty!"
-    return 0
+    return null
   endif
+endfun
+
+fun heap_poll heap
+  assert (heap != null) "heap_poll: Null pointer"
+  assertnot (catch heap["_HEAP_"]) "heap_poll: Not a heap!"
+  if 0 < heap["size"]; return heap[0]; endif
+  return null
+endfun
+
+fun heap_size heap
+  assert (heap != null) "heap_size: Null pointer"
+  assertnot (catch heap["_HEAP_"]) "heap_size: Not a heap!"
+  return heap["size"]
 endfun
 
 # Unbalanced Binary Tree
@@ -430,7 +460,8 @@ fun tree_create init
   return t
 endfun
 fun set_create init; return tree_create init; endfun
-fun set_empty; return null; endfun
+
+define set_empty null
 
 # Turns tree into (sorted) array (inorder)
 fun tree_flatten t

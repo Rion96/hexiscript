@@ -45,12 +45,3 @@ let digit num[1]
 if digit >= '0' && digit <= '9'
   println digit - '0' + 4 # '6' - '0' + 4 = 6 + 4 = 10
 endif
-
-# (Hint: Need a global constant? Define it as a function!)
-fun CONST; return 1234; endfun
-
-fun print_const
-  println CONST
-endfun
-
-print_const()

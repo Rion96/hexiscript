@@ -11,7 +11,7 @@ type token =
   | INCHAN of in_channel | OPENIN | CLOSE | CATCH | THROW
   | OUTCHAN of out_channel | OPENOUT | READ | WRITE
   | ARRAY of token array | ARR | DREF | FLOOR | CEIL
-  | LET | PRINT | PRINTLN | POSTFIX_INCR | POSTFIX_DECR
+  | LET | GLET | PRINT | PRINTLN | POSTFIX_INCR | POSTFIX_DECR
   | IF | ELSE | ENDIF | WHILE | ENDWHILE | FOR | ENDFOR
   | NEWLINE | ERROR | LIST of token list | SEQ | RETURN
   | UNOP_MINUS | NOT | POW | PREFIX_INCR | PREFIX_DECR
@@ -38,6 +38,7 @@ let rec string_of_token (tok : token) = (
   match tok with
   | NAME s        -> ("NAME " ^ s)
   | FUN s         -> ("FUN " ^ s)
+  | GLET          -> "GLET"
   | ENDFUN        -> "ENDFUN"
   | INT i         -> ("INT " ^ string_of_int i)
   | TONUM         -> "TONUM"
@@ -47,7 +48,7 @@ let rec string_of_token (tok : token) = (
   | TOCHAR        -> "TOCHAR"
   | STR s         -> ("STRING " ^ s)
   | TOSTR         -> "TOSTR"
-  | INCHAN _      -> ("INCHAN")
+  | INCHAN _      -> "INCHAN"
   | OPENIN        -> "OPENIN"
   | CLOSE         -> "CLOSE"
   | CATCH         -> "CATCH"
@@ -525,6 +526,10 @@ let tokenizer (stack : char list) = (
     | 'n' :: 'u' :: 'r' :: [] -> (RUN :: buffer)
     | 'n' :: 'u' :: 'r' :: c :: tl when sep c ->
       iterate (RUN :: buffer) (c :: tl)
+    (* define *)
+    | 'e' :: 'n' :: 'i' :: 'f' :: 'e' :: 'd' :: [] -> (GLET :: buffer)
+    | 'e' :: 'n' :: 'i' :: 'f' :: 'e' :: 'd' :: c :: tl when sep c ->
+      iterate (GLET :: buffer) (c :: tl)
     | '\'' :: tl ->
       let tok, stack = char_token tl in
       iterate (tok :: buffer) stack
@@ -597,7 +602,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             | B_OR -> 9
             | AND -> 10
             | OR -> 11
-            | LET | PRINT | PRINTLN | RETURN
+            | LET | GLET | PRINT | PRINTLN | RETURN
             | WRITE | THROW | FREE | RUN -> 12
             | tok -> raise (InvalidToken (tok, "at higher_order"))
           ) in
@@ -736,9 +741,15 @@ let interpreter (tokens : token list) (arg_offset : int) = (
               | exception Not_found -> loop stack (UNDEFINED s :: buffer) (index + 1)
             )
             | NAME a :: stack -> (
-              match StrMap.find a vars with
-              | elem                -> loop stack (elem :: buffer) (index + 1)
-              | exception Not_found -> loop stack (UNDEFINED a :: buffer) (index + 1)
+              let elem = (
+                match StrMap.find a vars with
+                | elem -> elem
+                | exception Not_found -> (
+                  match StrMap.find ("_GLOBAL_" ^ a) funs with
+                  | _, _, [elem] -> elem
+                  | exception Not_found | _ -> UNDEFINED a
+                )
+              ) in loop stack (elem :: buffer) (index + 1)
             )
             | hd :: tl -> loop tl (hd :: buffer) (index + 1)
             | []       -> loop [] buffer n
@@ -948,9 +959,17 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             | elem, first -> eval_rpn input vars (first :: elem :: stack)
           )
           | INT i :: NAME n :: stack -> (
-            match StrMap.find n vars with
-            | exception Not_found ->
-              eval_rpn input vars (UNDEFINED n :: stack)
+            let elem = (
+              match StrMap.find n vars with
+              | elem -> elem
+              | exception Not_found -> (
+                match StrMap.find ("_GLOBAL_" ^ n) funs with
+                | _, _, [elem] -> elem
+                | exception Not_found | _ -> UNDEFINED n
+              )
+            ) in
+            match elem with
+            | UNDEFINED n -> eval_rpn input vars (UNDEFINED n :: stack)
             | ARRAY a ->
               eval_rpn input vars (INT i :: ARRAY a :: stack)
             | STR s -> (
@@ -969,8 +988,17 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             | c -> eval_rpn input vars (CHAR c :: stack)
           )
           | STR attr :: NAME n :: stack -> (
-            match StrMap.find n vars with
-            | exception Not_found -> eval_rpn input vars (UNDEFINED n :: stack)
+            let elem = (
+              match StrMap.find n vars with
+              | elem -> elem
+              | exception Not_found -> (
+                match StrMap.find ("_GLOBAL_" ^ n) funs with
+                | _, _, [elem] -> elem
+                | exception Not_found | _ -> UNDEFINED n
+              )
+            ) in
+            match elem with
+            | UNDEFINED n -> eval_rpn input vars (UNDEFINED n :: stack)
             | DICTIONARY d -> eval_rpn input vars (STR attr :: DICTIONARY d :: stack)
             | tok -> raise (InvalidToken (tok, "at DREF (dict)"))
           )
@@ -1764,7 +1792,14 @@ let interpreter (tokens : token list) (arg_offset : int) = (
     )
     | FUN "_DEF_" :: NAME n :: input ->
       let new_fun, input = store_fun input in
-      iterate input vars (StrMap.add n new_fun (StrMap.remove n funs))
+      let funs = StrMap.remove ("_GLOBAL_" ^ n) (StrMap.remove n funs) in
+      iterate input vars (StrMap.add n new_fun funs)
+    | GLET :: NAME n :: input -> (
+      let expr, input = rpn (LET :: NAME "_DEFINE_" :: input) [] [] in
+      let elem = StrMap.find "_DEFINE_" (eval_rpn expr vars []) in
+      let funs = StrMap.remove ("_GLOBAL_" ^ n) (StrMap.remove n funs) in
+      iterate input vars (StrMap.add ("_GLOBAL_" ^ n) (0, [], [elem]) funs)
+    )
     | _ -> (
       let expr, input = rpn input [] [] in
       let vars = eval_rpn expr vars [] in

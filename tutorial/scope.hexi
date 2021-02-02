@@ -1,0 +1,81 @@
+# Hexiscript has a somewhat unusual scope
+# Note: catch returns true if variable/function undefined (see 'variables.hexi')
+
+# 1. Function Scope
+# As expected, variables do not carry in or out of a function's scope
+let i 0
+fun f
+  println "f: i is not defined here: " + (catch i)
+  let j 0
+endfun
+f()
+println "_: j is not defined here: " + (catch j)
+
+# Functions carry into a scope, but not out of it
+fun f; return 0; endfun
+fun g
+  println "g: f is defined here: " + (!(catch f))
+  fun h; return 0; endfun
+  println "g: h is defined here: " + (!(catch h))
+endfun
+g()
+println "_: h is not defined here: " + (catch h)
+
+# This fact can be used to 'emulate' globals
+fun pi; return 3.14; endfun
+fun area r; return r * r * pi; endfun
+println "area for radius 2 = " + area 2
+
+# Note that using a function without arguments as a constant can lead to unexpected behavior!
+fun f p pie
+  println "pi  = " + p
+  println "pie = " + pie
+endfun
+f pi "tasty"
+
+# To avoid this, use "define" to define global variables instead
+# Note that this still relies on functions under the hood (i.e., globals share namespace with functions)!
+define pi 3.14
+f pi "tasty"
+
+# Unlike functions, however, define supports mutable arrays and dicts!
+define a arr 4
+let a[1] 1
+let a[2] 2
+let a[3] 3
+fun print_global_array
+  for let i 0; i < len a; i++
+    print a[i] + " "
+  endfor
+  println ""
+endfun
+print_global_array()
+
+# The variable itself cannot be modified, however!
+define x 0
+println "++x is not defined on globals: " + (catch (++x)) # Analogous for the other ++/-- operators
+
+# 2. Block Scope
+# There is no block scope for local variables
+free i; free j
+while true
+  let i 0
+  break
+endwhile
+println "_: i is defined here: " + (!(catch i))
+if true; let j 0; endif
+println "_: j is defined here: " + (!(catch j))
+free i; free j
+
+# There is block scope for functions, and by extension definitions in loops
+define j 0
+while true
+  println "while: j is defined here: " + (!(catch j))
+  define i 0
+  break
+endwhile
+println "_: i is not defined here: " + (catch i)
+
+# If blocks on the other hand have absolutely no block scope
+if true; define i 0; endif
+println "_: i is defined here: " + (!(catch i))

@@ -1,7 +1,7 @@
 # Sudoku Solver
 include "util.hexi"
 
-fun EXAMPLE
+fun EXAMPLE_BOARD
 0 9 0 7 0 0 0 6 0
 0 0 0 2 3 0 1 0 0
 3 1 5 0 0 0 0 0 0
@@ -13,7 +13,22 @@ fun EXAMPLE
 0 0 0 8 4 0 0 0 0
 endfun
 
-fun nextPos board x
+define board matrix_create 9 9
+
+fun main
+  for let i 0; i < 9; i++
+    let s (scan str)
+    let s (string_split s ' ')
+      for let j 0; j < 9; j++
+      let board[i][j] (toint s[j])
+    endfor
+  endfor
+
+  backtrack(next_pos 0)
+  print_board()
+endfun
+
+fun next_pos x
   let out arr 2
   for let i x; i < 9; i++
     for let j 0; j < 9; j++
@@ -29,10 +44,9 @@ fun nextPos board x
   return out
 endfun
 
-fun backtrack board pos
+fun backtrack pos
   let x pos[0]
   let y pos[1]
-  println "(" + x + "," + y + ")"
   if x = 9; return true; endif
   let blockx (x - (x % 3))
   let blocky (y - (y % 3))
@@ -52,9 +66,8 @@ fun backtrack board pos
         endif
       endfor
       if doable
-        println "Attempting n=" + n
         let board[x][y] n
-        if backtrack board (nextPos board x)
+        if backtrack (next_pos x)
           return true
         endif
         let board[x][y] 0
@@ -64,7 +77,7 @@ fun backtrack board pos
   return false
 endfun
 
-fun printBoard board
+fun print_board
   let out "\n"
   let line ""
   for let i 0; i < 9; i++
@@ -83,15 +96,4 @@ fun printBoard board
   println out
 endfun
 
-let board arr 9
-for let i 0; i < 9; i++
-  let board[i] arr 9
-  let s (scan str)
-  let s (string_split s ' ')
-    for let j 0; j < 9; j++
-    let board[i][j] (toint s[j])
-  endfor
-endfor
-
-backtrack  board (nextPos board 0)
-printBoard board
+main()
