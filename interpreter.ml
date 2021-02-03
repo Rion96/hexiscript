@@ -746,8 +746,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
                 | elem -> elem
                 | exception Not_found -> (
                   match StrMap.find ("_GLOBAL_" ^ a) funs with
+                  | exception Not_found -> UNDEFINED a
                   | _, _, [elem] -> elem
-                  | exception Not_found | _ -> UNDEFINED a
+                  | _ -> UNDEFINED a
                 )
               ) in loop stack (elem :: buffer) (index + 1)
             )
@@ -964,8 +965,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
               | elem -> elem
               | exception Not_found -> (
                 match StrMap.find ("_GLOBAL_" ^ n) funs with
+                | exception Not_found -> UNDEFINED n
                 | _, _, [elem] -> elem
-                | exception Not_found | _ -> UNDEFINED n
+                | _ -> UNDEFINED n
               )
             ) in
             match elem with
@@ -993,8 +995,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
               | elem -> elem
               | exception Not_found -> (
                 match StrMap.find ("_GLOBAL_" ^ n) funs with
+                | exception Not_found -> UNDEFINED n
                 | _, _, [elem] -> elem
-                | exception Not_found | _ -> UNDEFINED n
+                | _ -> UNDEFINED n
               )
             ) in
             match elem with
