@@ -1,6 +1,7 @@
 # Arguments passed to the program can be accessed through the args array
 # This array is only accessible in the outermost scope,
-# so it has to be passed to the main function as a parameter (There is no global scope!)
+# so it has to be passed to the main function as a parameter.
+# Alternatively use "define args args" to make it global (see 'scope.hexi')
 
 fun main args
   # The first argument is always the name of the file

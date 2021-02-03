@@ -1009,14 +1009,14 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             try  StrMap.find n funs 
             with Not_found -> raise (InvalidToken (FUN n, "at FUN")) in
           let stack = dref stack argc in
-          let rec assign (args : string list) (stack : token list) (vars : token StrMap.t) = (
+          let rec assign (args : string list) (stack : token list) (vars : token StrMap.t) funs = (
             match args, stack with
-            | n :: tl , v :: stack -> assign tl stack (StrMap.add n v vars)
-            | []      , _          -> vars, stack
-            | _                    -> raise (InvalidFunction "at assign")
+            | n :: tl , v :: stack -> assign tl stack (StrMap.add n v vars) (StrMap.remove n funs)
+            | []      , _          -> vars, funs, stack
+            | _                    -> raise (InvalidFunction ("at assign for FUN " ^ n))
           ) in
-          let fn_vars, stack = assign args stack StrMap.empty in
-          let res_vars = iterate sequence fn_vars funs in
+          let fn_vars, fn_funs, stack = assign args stack StrMap.empty funs in
+          let res_vars = iterate sequence fn_vars fn_funs in
           if StrMap.mem "_RETURN_" res_vars then
             StrMap.find "_RETURN_" res_vars :: stack
             |> eval_rpn input vars

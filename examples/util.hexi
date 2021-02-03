@@ -23,9 +23,15 @@ endfun
 fun fprintln f s; fprint f (s + "\n"); endfun
 
 fun to_upper s
+  # Generally you don't need to be so careful, but since 'util.hexi' is intended
+  # to be used as a library, we don't know what functions the user has defined.
+  # Therefore it's best to overwrite any potential functions that share names with
+  # local variables we intend to use (This is not necessary for the function's arguments,
+  # as those overwrite function names automatically).
+  define out UNDEFINED
+  define i   UNDEFINED
   let out ""
-  let l   len s
-  for let i 0; i < l; i++
+  for let i 0; i < len s; i++
     if s[i] >= 'a' && s[i] <= 'z'
       let out (out + tochar (s[i] - 32))
     else
@@ -36,9 +42,10 @@ fun to_upper s
 endfun
 
 fun to_lower s
+  define out UNDEFINED
+  define i   UNDEFINED
   let out ""
-  let l   len s
-  for let i 0; i < l; i++
+  for let i 0; i < len s; i++
     if s[i] >= 'A' && s[i] <= 'Z'
       let out (out + tochar (s[i] + 32))
     else
@@ -49,18 +56,20 @@ fun to_lower s
 endfun
 
 fun toint s
-  let n tonum s
-  if catch n; return n; endif
-  return floor n
+  let s tonum s
+  if catch s; return s; endif
+  return floor s
 endfun
 
 fun tofloat s
-  let n tonum s
-  if catch n; return n; endif
-  return n + 0.
+  let s tonum s
+  if catch s; return s; endif
+  return s + 0.
 endfun
 
 fun string_filter s elem
+  define out UNDEFINED
+  define i   UNDEFINED
   let out ""
   for let i 0; i < len s; i++
     if s[i] != elem
@@ -71,6 +80,10 @@ fun string_filter s elem
 endfun
 
 fun string_trim s
+  define out UNDEFINED
+  define i   UNDEFINED
+  define j   UNDEFINED
+  define k   UNDEFINED
   let out ""
   for let i 0; i < len s - 1; i++
     if s[i] != ' '; break; endif
@@ -85,8 +98,9 @@ fun string_trim s
 endfun
 
 fun string_compare a b
-  let min_l len a
-  if len b < len a; let min_l len b; endif
+  define min_l len a
+  define i     UNDEFINED
+  if len b < min_l; define min_l len b; endif
   for let i 0; i < min_l; i++
     if a[i] != b[i]; return a[i] - b[i]; endif
   endfor
@@ -94,11 +108,12 @@ fun string_compare a b
 endfun
 
 fun string_split s delim
-  let ret    dict 32
-  let l      len s
+  define i   UNDEFINED
+  define j   UNDEFINED
+  define ret dict 32
   let j      0
   let ret[0] ""
-  for let i 0; i < l; i++
+  for let i 0; i < len s; i++
     if s[i] = delim
       if len ret[j] > 0
         let ret[++j] ""
@@ -111,8 +126,9 @@ fun string_split s delim
 endfun
 
 fun string_sub s from to
-  let ls len s
-  assert (0 <= from && from <= to && to <= ls) ("string_sub: from=" + from + ", to=" + to)
+  define ret UNDEFINED
+  define i   UNDEFINED
+  assert (0 <= from && from <= to && to <= len s) ("string_sub: from=" + from + ", to=" + to)
   let ret ""
   for let i from; i < to; i++
     let ret (ret + s[i])
@@ -148,19 +164,19 @@ fun min x y; if compare y x < 0; return y; else return x; endif; endfun
 fun max x y; if compare x y < 0; return y; else return x; endif; endfun
 
 fun dict_copy d
-  let n   len d
-  let k   keys d
-  let cpy dict n
-  for let i 0; i < n; i++
+  define i   UNDEFINED
+  define k   keys d
+  define cpy dict len d
+  for let i 0; i < len d; i++
     let cpy[k[i]] d[k[i]]
   endfor
   return cpy
 endfun
 
 fun dict_print d
-  let n len d
-  let k keys d
-  for let i 0; i < n; i++
+  define i UNDEFINED
+  define k keys d
+  for let i 0; i < len d; i++
     print k[i] + "\t: "
     println d[k[i]]
   endfor
@@ -169,19 +185,20 @@ endfun
 # Array functions
 # Most array functions work with dicts as well
 fun array_copy a
-  let n   len a
-  let cpy arr n
-  for let i 0; i < n; i++
+  define i   UNDEFINED
+  define cpy arr len a
+  for let i 0; i < len a; i++
     let cpy[i] a[i]
   endfor
   return cpy
 endfun
 
 fun array_filter a elem
-  let n     len a
-  let out   dict n
+  define index UNDEFINED
+  define i     UNDEFINED
+  define out   dict len a
   let index 0
-  for let i 0; i < n; i++
+  for let i 0; i < len a; i++
     if compare a[i] elem != 0
       let out[index++] a[i]
     endif
@@ -190,14 +207,15 @@ fun array_filter a elem
 endfun
 
 fun array_fill a elem
-  let n len a
-  for let i 0; i < n; i++
+  define i UNDEFINED
+  for let i 0; i < len a; i++
     let a[i] elem
   endfor
 endfun
 
 fun array_print a
-  let n len a - 1
+  define i UNDEFINED
+  define n len a - 1
   if n < 0
     print "{}"
   else
@@ -212,6 +230,10 @@ endfun
 fun array_println a; array_print a; println ""; endfun
 
 fun array_sort h
+  define child UNDEFINED
+  define tmp   UNDEFINED
+  define i     UNDEFINED
+  define n     UNDEFINED
   fun sift_down h n index
     while index * 2 + 1 < n
       let child index * 2 + 1
@@ -245,9 +267,10 @@ fun array_sort h
 endfun
 
 fun array_concat a b
-  let la len a
-  let lb len b
-  let c  arr (la + lb)
+  define i  UNDEFINED
+  define la len a
+  define lb len b
+  define c  arr (la + lb)
   for let i 0; i < la; i++
     let c[i] a[i]
   endfor
@@ -259,9 +282,9 @@ endfun
 
 # Subset operation (Assumes sortedness!)
 fun array_subset a b
-  let la len a; let lb len b
-  if lb < la; return false; endif
-  for let i 0; i < la; i++
+  define i UNDEFINED; define j UNDEFINED
+  if len b < len a; return false; endif
+  for let i 0; i < len a; i++
     let j 0
     while compare b[j] a[i] < 0; j++; endwhile
     if compare b[j] a[i] != 0; return false; endif
@@ -271,10 +294,11 @@ endfun
 
 # Intersect operation (Assumes sortedness!)
 fun array_intersect a b
-  let la len a; let lb len b
+  define x UNDEFINED; define y UNDEFINED; define r UNDEFINED
+  define la len a; define lb len b
   if la = 0 || lb = 0; return arr 0; endif
   let x 0; let y 0; let r 0
-  let res dict (la + lb)
+  define res dict (la + lb)
   while x < la && y < lb
     if   compare a[x] b[y] < 0; x++
     elif compare b[y] a[x] < 0; y++
@@ -290,8 +314,8 @@ endfun
 
 fun folder acc x; return acc + x; endfun
 fun array_fold acc a
-  let la len a
-  for let i 0; i < la; i++
+  define i UNDEFINED
+  for let i 0; i < len a; i++
     let acc (folder acc a[i])
   endfor
   return acc
@@ -304,16 +328,16 @@ endfun
 
 fun mapper x; return toint x; endfun
 fun array_map a
-  let la len a
+  define i UNDEFINED
   let a array_copy a
-  for let i 0; i < la; i++
+  for let i 0; i < len a; i++
     let a[i] (mapper a[i])
   endfor
   return a
 endfun
 
 fun array_create l x
-  let a arr l
+  define a arr l
   array_fill a x
   return a
 endfun
@@ -324,6 +348,7 @@ fun matrix_create x y
 endfun
 
 fun matrix_print a
+  define i UNDEFINED
   for let i 0; i < len a; i++
     array_println a[i]
   endfor
@@ -331,36 +356,36 @@ endfun
 
 # Fast way to initialize arrays
 fun array_quick s delim type
-  let res string_split s delim
-  let res array_copy res
+  define res string_split s delim
+  define res array_copy res
   if type = "int"
     fun mapper x; return toint x; endfun
-    let res array_map res
+    define res array_map res
   elif type = "bool"
     fun mapper x; if x = "true"; return true; else return false; endif; endfun
-    let res array_map res
+    define res array_map res
   elif type = "float"
     fun mapper x; return tonum x; endfun
-    let res array_map res
+    define res array_map res
   elif type = "char"
     fun mapper x; return tochar x; endfun
-    let res array_map res
+    define res array_map res
   endif
   return res
 endfun
 
 fun array_member a x
-  let la len a
-  for let i 0; i < la; i++
+  define i UNDEFINED
+  for let i 0; i < len a; i++
     if a[i] = x; return true; endif
   endfor
   return false
 endfun
 
 fun array_sub a from to
-  let la len a
-  assert (0 <= from && from <= to && to <= la) ("array_sub: from=" + from + ", to=" + to)
-  let ret arr (to - from)
+  assert (0 <= from && from <= to && to <= len a) ("array_sub: from=" + from + ", to=" + to)
+  define i   UNDEFINED
+  define ret arr (to - from)
   for let i from; i < to; i++
     let ret[i - from] a[i]
   endfor
@@ -369,7 +394,8 @@ endfun
 
 fun array_interval from to
   assert (from <= to) ("array_interval: from=" + from + ", to=" + to)
-  let a arr (to - from)
+  define i UNDEFINED
+  define a arr (to - from)
   for let i 0; i < to - from; i++
     let a[i] (i + from)
   endfor
@@ -378,13 +404,13 @@ endfun
 
 fun argcond acc x; return compare x acc < 0; endfun
 fun array_findarg a
-  let la len a
-  assert (0 < la) "array_findarg: Array is empty!"
-  let arg 0
-  let acc a[0]
-  for let i 1; i < la; i++
+  assert (0 < len a) "array_findarg: Array is empty!"
+  define i   UNDEFINED
+  define arg 0
+  define acc a[0]
+  for let i 1; i < len a; i++
     if argcond acc a[i]
-      let arg i; let acc a[i]
+      define arg i; define acc a[i]
     endif
   endfor
   return arg
@@ -403,7 +429,7 @@ endfun
 # Heap functions
 # Uses function "compare" to determine ordering
 fun heap_create size
-  let heap           dict size + 2
+  define heap dict size + 2
   let heap["size"]   0
   let heap["_HEAP_"] true
   return heap
@@ -412,6 +438,9 @@ endfun
 fun heap_push heap elem
   assert (heap != null) "heap_push: Null pointer"
   assertnot (catch heap["_HEAP_"]) "heap_push: Not a heap!"
+  define parent UNDEFINED
+  define index  UNDEFINED
+  define tmp    UNDEFINED
   fun sift_up heap index
     while (index - 1) / 2 >= 0
       let parent (index - 1) / 2
@@ -433,6 +462,9 @@ endfun
 fun heap_pop heap
   assert (heap != null) "heap_pop: Null pointer"
   assertnot (catch heap["_HEAP_"]) "heap_pop: Not a heap!"
+  define index UNDEFINED
+  define child UNDEFINED
+  define elem  UNDEFINED
   fun sift_down heap index
     while index * 2 + 1 < heap["size"]
       let child index * 2 + 1
@@ -477,7 +509,7 @@ endfun
 
 # Unbalanced Binary Tree
 fun tree_create init
-  let t    arr  3
+  define t arr  3
   let t[0] init
   let t[1] null
   let t[2] null
@@ -489,14 +521,13 @@ define set_empty null
 
 # Turns tree into (sorted) array (inorder)
 fun tree_flatten t
-  let elem 0; let left 1; let right 2
+  define elem 0; define left 1; define right 2
   if t = null; return arr 0
   else
-    let e    arr 1
-    let e[0] t[elem]
-    let tl   (tree_flatten t[left] )
-    let tr   (tree_flatten t[right])
-    let tl   (array_concat tl e    )
+    define e  array_create 1 t[elem]
+    define tl tree_flatten t[left]
+    define tr tree_flatten t[right]
+    define tl array_concat tl e
     return array_concat tl tr
   endif
 endfun
@@ -505,12 +536,12 @@ fun array_of_set t; return tree_flatten t; endfun
 
 # Turns array into tree (Assumes sortedness, no duplicates!)
 fun tree_of_array_unsafe a
+  define elem 0; define left 1; define right 2
   fun recurse a from to
     if to < from; return null; endif
     if to = from; return tree_create a[from]; endif
-    let left 1; let right 2
-    let pivot    from + (to - from) / 2
-    let t        tree_create a[pivot]
+    define pivot from + (to - from) / 2
+    define t     tree_create a[pivot]
     let t[left]  recurse a from (pivot - 1)
     let t[right] recurse a (pivot + 1) to
     return t
@@ -522,10 +553,10 @@ fun set_of_array_unsafe a; return tree_of_array_unsafe a; endfun
 
 # Slower, but works on all arrays
 fun tree_of_array a
-  let la len a
-  if la = 0; return null; endif
-  let ret tree_create a[0]
-  for let i 1; i < la; i++
+  if len a = 0; return null; endif
+  define i   UNDEFINED
+  define ret tree_create a[0]
+  for let i 1; i < len a; i++
     tree_insert ret a[i]
   endfor
   return tree_balance ret
@@ -537,7 +568,7 @@ fun tree_balance t; return tree_of_array_unsafe (tree_flatten t); endfun
 fun set_copy t; return tree_balance t; endfun
 
 fun tree_insert t e
-  let elem 0; let left 1; let right 2
+  define elem 0; define left 1; define right 2
   if 0 < compare t[elem] e
     if t[left] = null
       let t[left] (tree_create e)
@@ -556,7 +587,7 @@ endfun
 fun set_insert t e; if t = null; return tree_create e; else return tree_insert t e; endif; endfun
 
 fun tree_find t e
-  let elem 0; let left 1; let right 2
+  define elem 0; define left 1; define right 2
   if t = null; return null; endif
   if 0 < compare t[elem] e
     return tree_find t[left] e
@@ -569,7 +600,7 @@ endfun
 fun set_member t e; return null != tree_find t e; endfun
 
 fun tree_min t
-  let elem 0; let left 1; let right 2
+  define elem 0; define left 1; define right 2
   if t = null; return null
   elif t[left] = null; return t[elem]
   else return tree_min t[left]; endif
@@ -577,7 +608,7 @@ endfun
 fun set_min t; return tree_min t; endfun
 
 fun tree_max t
-  let elem 0; let left 1; let right 2
+  define elem 0; define left 1; define right 2
   if t = null; return null
   elif t[right] = null; return t[elem]
   else return tree_max t[right]; endif
@@ -585,7 +616,7 @@ endfun
 fun set_max t; return tree_max t; endfun
 
 fun tree_delete t e
-  let elem 0; let left 1; let right 2
+  define elem 0; define left 1; define right 2
   if t = null; return null; endif
   if 0 < compare t[elem] e
     let t[left] tree_delete t[left] e
@@ -594,7 +625,7 @@ fun tree_delete t e
   else
     if t[right] = null; return t[left]
     else
-      let min_t tree_min t[right]
+      define min_t     tree_min t[right]
       let t[right]     tree_delete t[right] min_t
       let t[elem]      min_t
     endif
@@ -604,7 +635,7 @@ endfun
 fun set_delete t e; return tree_delete t e; endfun
 
 fun tree_size t
-  let left 1; let right 2
+  define elem 0; define left 1; define right 2
   if t = null; return 0
   else return tree_size t[left] + 1 + tree_size t[right]; endif
 endfun
@@ -616,18 +647,18 @@ fun set_print t; tree_print t; endfun
 fun set_println t; tree_println t; endfun
 
 fun tree_join a b
+  define i UNDEFINED
   if b = null; return a; endif
   if a = null; return b; endif
   # Rebalance the larger tree, flatten the smaller
   if len a < len b
-    let t tree_balance b
+    define t tree_balance b
     let a tree_flatten a
   else
-    let t tree_balance a
+    define t tree_balance a
     let a tree_flatten b
   endif
-  let l len a
-  for let i 0; i < l; i++
+  for let i 0; i < len a; i++
     tree_insert t a[i]
   endfor
   return t
@@ -640,9 +671,9 @@ fun tree_intersect a b; return tree_of_array_unsafe array_intersect (tree_flatte
 fun set_intersect a b; return tree_intersect a b; endfun
 
 fun tree_delete_array t a
-  let la len a
-  if la = 0; return t; endif
-  for let i 0; i < la; i++
+  define i UNDEFINED
+  if len a = 0; return t; endif
+  for let i 0; i < len a; i++
     let t tree_delete t a[i]
   endfor
   return t
@@ -652,7 +683,7 @@ fun tree_delete_tree a b; return tree_delete_array a (tree_flatten b); endfun
 fun set_minus a b; return tree_delete_tree a b; endfun
 
 fun tree_sum t
-  let elem 0; let left 1; let right 2
+  define elem 0; define left 1; define right 2
   if t = null; return 0; endif
   return tree_sum t[left] + t[elem] + tree_sum t[right]
 endfun
@@ -661,11 +692,11 @@ fun set_sum t; return tree_sum t; endfun
 # Compare sets using string_compare
 fun set_compare a b
   fun folder acc x; return acc + x; endfun
-  let sa array_of_set a
-  let sb array_of_set b
-  let sa (array_fold "" sa)
-  let sb (array_fold "" sb)
-  return string_compare sa sb
+  let a array_of_set a
+  let b array_of_set b
+  let a (array_fold "" a)
+  let b (array_fold "" b)
+  return string_compare a b
 endfun
 
 # Simple function compositions
@@ -680,11 +711,12 @@ fun set_interval  from to; return tree_interval from to; endfun
 
 # Split string using multiple delimiters (char set!)
 fun string_splits s delims
-  let ret    dict 32
-  let l      len s
+  define i   UNDEFINED
+  define j   UNDEFINED
+  define ret dict 32
   let j      0
   let ret[0] ""
-  for let i 0; i < l; i++
+  for let i 0; i < len s; i++
     if set_member delims s[i]
       if len ret[j] > 0
         let ret[++j] ""
@@ -698,7 +730,7 @@ endfun
 
 # Linked List
 fun list_create init
-  let l    arr 2
+  define l arr 2
   let l[0] init
   let l[1] null
   return l
@@ -706,9 +738,9 @@ endfun
 fun stack_create init; return list_create init; endfun
 
 fun list_prepend l e
-  let h    (list_create e)
-  let h[1] l
-  return h
+  let e    list_create e
+  let e[1] l
+  return e
 endfun
 fun stack_push s e; return list_prepend s e; endfun
 
@@ -749,12 +781,14 @@ fun stack_size s; return list_size s; endfun
 
 fun array_of_list l
   if l = null; return arr 0; endif
-  let e arr 1; let e[0] l[0]
+  define e array_create 1 l[0]
   return array_concat e (array_of_list l[1])
 endfun
 
 fun list_of_array a
   if len a = 0; return null; endif
+  define la UNDEFINED
+  define l  UNDEFINED
   let la len a - 1
   let l list_create a[la--]
   while 0 <= la
