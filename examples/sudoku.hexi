@@ -13,15 +13,11 @@ fun EXAMPLE_BOARD
 0 0 0 8 4 0 0 0 0
 endfun
 
-define board matrix_create 9 9
+define board arr 9
 
 fun main
   for let i 0; i < 9; i++
-    let s (scan str)
-    let s (string_split s ' ')
-    for let j 0; j < 9; j++
-      let board[i][j] (toint s[j])
-    endfor
+    let board[i] array_quick (scan str) ' ' int
   endfor
 
   backtrack(next_pos 0)

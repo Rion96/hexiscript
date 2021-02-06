@@ -179,7 +179,7 @@ let tokenizer (stack : char list) = (
         try
           FLOAT (float_of_string buffer), stack
         with exn ->
-          ERROR, stack
+          NAME buffer, stack
   ) in
   let char_token = (
     function
@@ -208,14 +208,17 @@ let tokenizer (stack : char list) = (
   ) in
   let rec name_token (buffer : string) (input : char list) = (
     match input with
+    | '0'..'9' :: c :: _ when sep c -> ERROR, input
     | c :: _ when sep c -> NAME buffer, input
     | 'x' :: '0' :: tl ->
       num_token ("0x" ^ buffer) tl
-    | '_' :: ('A'..'Z' as c) :: tl
-    | '_' :: ('a'..'z' as c) :: tl ->
+    | '_' :: c :: tl when c >= 'A' && c <= 'Z'
+                       || c >= 'a' && c <= 'z'
+                       || c >= '0' && c <= '9' ->
       name_token ((String.make 1 c) ^ "_" ^ buffer) tl
-    | ('A'..'Z' as hd) :: tl
-    | ('a'..'z' as hd) :: tl ->
+    | hd :: tl when hd >= 'A' && hd <= 'Z'
+                 || hd >= 'a' && hd <= 'z'
+                 || hd >= '0' && hd <= '9' ->
       name_token ((String.make 1 hd) ^ buffer) tl
     | stack -> ERROR, stack
   ) in
@@ -742,12 +745,11 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             )
             | NAME a :: stack -> (
               let elem = (
-                match StrMap.find a vars with
-                | elem -> elem
-                | exception Not_found -> (
-                  match StrMap.find ("_GLOBAL_" ^ a) funs with
-                  | exception Not_found -> UNDEFINED a
-                  | _, _, [elem] -> elem
+                match StrMap.find_opt a vars with
+                | Some elem -> elem
+                | None -> (
+                  match StrMap.find_opt ("_GLOBAL_" ^ a) funs with
+                  | Some (_, _, [elem]) -> elem
                   | _ -> UNDEFINED a
                 )
               ) in loop stack (elem :: buffer) (index + 1)
@@ -823,11 +825,15 @@ let interpreter (tokens : token list) (arg_offset : int) = (
         | PREFIX_INCR -> (
           match stack with
           | STR s :: DICTIONARY d :: stack -> (
-            match Hashtbl.find d s with
-            | INT i ->
+            match Hashtbl.find_opt d s with
+            | None -> eval_rpn input vars (UNDEFINED s :: stack)
+            | Some INT i ->
               let v = INT (i + 1) in
               Hashtbl.replace d s v; eval_rpn input vars (v :: stack)
-            | tok -> raise (InvalidToken (tok, "at PREFIX_INCR (dict)"))
+            | Some FLOAT f ->
+              let v = FLOAT (f +. 1.) in
+              Hashtbl.replace d s v; eval_rpn input vars (v :: stack)
+            | Some tok -> raise (InvalidToken (tok, "at PREFIX_INCR (dict)"))
           )
           | INT i :: ARRAY a :: stack -> (
             match a.(i) with
@@ -835,26 +841,36 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             | INT j ->
               let v = INT (j + 1) in
               a.(i) <- v; eval_rpn input vars (v :: stack)
+            | FLOAT f ->
+              let v = FLOAT (f +. 1.) in
+              a.(i) <- v; eval_rpn input vars (v :: stack)
             | tok -> raise (InvalidToken (tok, "at PREFIX_INCR (array)"))
           )
           | NAME n :: stack -> (
-            match StrMap.find n vars with
-            | exception Not_found -> eval_rpn input vars (UNDEFINED n :: stack)
-            | INT i ->
+            match StrMap.find_opt n vars with
+            | None -> eval_rpn input vars (UNDEFINED n :: stack)
+            | Some INT i ->
               let v = INT (i + 1) in
               eval_rpn input (StrMap.add n v (StrMap.remove n vars)) (v :: stack)
-            | tok -> raise (InvalidToken (tok, "at PREFIX_INCR"))
+            | Some FLOAT f ->
+              let v = FLOAT (f +. 1.) in
+              eval_rpn input (StrMap.add n v (StrMap.remove n vars)) (v :: stack)
+            | Some tok -> raise (InvalidToken (tok, "at PREFIX_INCR"))
           )
           | stack -> raise (InvalidToken (LIST stack, "at PREFIX_INCR"))
         )
         | PREFIX_DECR -> (
           match stack with
           | STR s :: DICTIONARY d :: stack -> (
-            match Hashtbl.find d s with
-            | INT i ->
+            match Hashtbl.find_opt d s with
+            | None -> eval_rpn input vars (UNDEFINED s :: stack)
+            | Some INT i ->
               let v = INT (i - 1) in
               Hashtbl.replace d s v; eval_rpn input vars (v :: stack)
-            | tok -> raise (InvalidToken (tok, "at PREFIX_INCR (dict)"))
+            | Some FLOAT f ->
+              let v = FLOAT (f -. 1.) in
+              Hashtbl.replace d s v; eval_rpn input vars (v :: stack)
+            | Some tok -> raise (InvalidToken (tok, "at PREFIX_DECR (dict)"))
           )
           | INT i :: ARRAY a :: stack -> (
             match a.(i) with
@@ -862,26 +878,36 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             | INT j ->
               let v = INT (j - 1) in
               a.(i) <- v; eval_rpn input vars (v :: stack)
+            | FLOAT f ->
+              let v = FLOAT (f -. 1.) in
+              a.(i) <- v; eval_rpn input vars (v :: stack)
             | tok -> raise (InvalidToken (tok, "at PREFIX_DECR (array)"))
           )
           | NAME n :: stack -> (
-            match StrMap.find n vars with
-            | exception Not_found -> eval_rpn input vars (UNDEFINED n :: stack)
-            | INT i ->
+            match StrMap.find_opt n vars with
+            | None -> eval_rpn input vars (UNDEFINED n :: stack)
+            | Some INT i ->
               let v = INT (i - 1) in
               eval_rpn input (StrMap.add n v (StrMap.remove n vars)) (v :: stack)
-            | tok -> raise (InvalidToken (tok, "at PREFIX_DECR"))
+            | Some FLOAT f ->
+              let v = FLOAT (f -. 1.) in
+              eval_rpn input (StrMap.add n v (StrMap.remove n vars)) (v :: stack)
+            | Some tok -> raise (InvalidToken (tok, "at PREFIX_DECR"))
           )
           | stack -> raise (InvalidToken (LIST stack, "at PREFIX_DECR"))
         )
         | POSTFIX_INCR -> (
           match stack with
           | STR s :: DICTIONARY d :: stack -> (
-            match Hashtbl.find d s with
-            | INT i ->
+            match Hashtbl.find_opt d s with
+            | None -> eval_rpn input vars (UNDEFINED s :: stack)
+            | Some INT i ->
               let v = INT (i + 1) in
               Hashtbl.replace d s v; eval_rpn input vars (INT i :: stack)
-            | tok -> raise (InvalidToken (tok, "at PREFIX_INCR (dict)"))
+            | Some FLOAT f ->
+              let v = FLOAT (f +. 1.) in
+              Hashtbl.replace d s v; eval_rpn input vars (FLOAT f :: stack)
+            | Some tok -> raise (InvalidToken (tok, "at POSTFIX_INCR (dict)"))
           )
           | INT i :: ARRAY a :: stack -> (
             match a.(i) with
@@ -889,26 +915,36 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             | INT j ->
               let v = INT (j + 1) in
               a.(i) <- v; eval_rpn input vars (INT j :: stack)
+            | FLOAT f ->
+              let v = FLOAT (f +. 1.) in
+              a.(i) <- v; eval_rpn input vars (FLOAT f :: stack)
             | tok -> raise (InvalidToken (tok, "at POSTFIX_INCR (array)"))
           )
           | NAME n :: stack -> (
-            match StrMap.find n vars with
-            | exception Not_found -> eval_rpn input vars (UNDEFINED n :: stack)
-            | INT i ->
+            match StrMap.find_opt n vars with
+            | None -> eval_rpn input vars (UNDEFINED n :: stack)
+            | Some INT i ->
               let v = INT (i + 1) in
               eval_rpn input (StrMap.add n v (StrMap.remove n vars)) (INT i :: stack)
-            | tok -> raise (InvalidToken (tok, "at POSTFIX_INCR"))
+            | Some FLOAT f ->
+              let v = FLOAT (f +. 1.) in
+              eval_rpn input (StrMap.add n v (StrMap.remove n vars)) (FLOAT f :: stack)
+            | Some tok -> raise (InvalidToken (tok, "at POSTFIX_INCR"))
           )
           | stack -> raise (InvalidToken (LIST stack, "at POSTFIX_INCR"))
         )
         | POSTFIX_DECR -> (
           match stack with
           | STR s :: DICTIONARY d :: stack -> (
-            match Hashtbl.find d s with
-            | INT i ->
+            match Hashtbl.find_opt d s with
+            | None -> eval_rpn input vars (UNDEFINED s :: stack)
+            | Some INT i ->
               let v = INT (i - 1) in
               Hashtbl.replace d s v; eval_rpn input vars (INT i :: stack)
-            | tok -> raise (InvalidToken (tok, "at PREFIX_INCR (dict)"))
+            | Some FLOAT f ->
+              let v = FLOAT (f -. 1.) in
+              Hashtbl.replace d s v; eval_rpn input vars (FLOAT f :: stack)
+            | Some tok -> raise (InvalidToken (tok, "at POSTFIX_DECR (dict)"))
           )
           | INT i :: ARRAY a :: stack -> (
             match a.(i) with
@@ -916,15 +952,21 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             | INT j ->
               let v = INT (j - 1) in
               a.(i) <- v; eval_rpn input vars (INT j :: stack)
+            | FLOAT f ->
+              let v = FLOAT (f -. 1.) in
+              a.(i) <- v; eval_rpn input vars (FLOAT f :: stack)
             | tok -> raise (InvalidToken (tok, "at POSTFIX_DECR (array)"))
           )
           | NAME n :: stack -> (
-            match StrMap.find n vars with
-            | exception Not_found -> eval_rpn input vars (UNDEFINED n :: stack)
-            | INT i ->
+            match StrMap.find_opt n vars with
+            | None -> eval_rpn input vars (UNDEFINED n :: stack)
+            | Some INT i ->
               let v = INT (i - 1) in
               eval_rpn input (StrMap.add n v (StrMap.remove n vars)) (INT i :: stack)
-            | tok -> raise (InvalidToken (tok, "at POSTFIX_DECR"))
+            | Some FLOAT f ->
+              let v = FLOAT (f -. 1.) in
+              eval_rpn input (StrMap.add n v (StrMap.remove n vars)) (FLOAT f :: stack)
+            | Some tok -> raise (InvalidToken (tok, "at POSTFIX_DECR"))
           )
           | stack -> raise (InvalidToken (LIST stack, "at POSTFIX_DECR"))
         )
@@ -961,12 +1003,11 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           )
           | INT i :: NAME n :: stack -> (
             let elem = (
-              match StrMap.find n vars with
-              | elem -> elem
-              | exception Not_found -> (
-                match StrMap.find ("_GLOBAL_" ^ n) funs with
-                | exception Not_found -> UNDEFINED n
-                | _, _, [elem] -> elem
+              match StrMap.find_opt n vars with
+              | Some elem -> elem
+              | None -> (
+                match StrMap.find_opt ("_GLOBAL_" ^ n) funs with
+                | Some (_, _, [elem]) -> elem
                 | _ -> UNDEFINED n
               )
             ) in
@@ -991,12 +1032,11 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           )
           | STR attr :: NAME n :: stack -> (
             let elem = (
-              match StrMap.find n vars with
-              | elem -> elem
-              | exception Not_found -> (
-                match StrMap.find ("_GLOBAL_" ^ n) funs with
-                | exception Not_found -> UNDEFINED n
-                | _, _, [elem] -> elem
+              match StrMap.find_opt n vars with
+              | Some elem -> elem
+              | None -> (
+                match StrMap.find_opt ("_GLOBAL_" ^ n) funs with
+                | Some (_, _, [elem]) -> elem
                 | _ -> UNDEFINED n
               )
             ) in
@@ -1009,8 +1049,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
         )
         | FUN n -> (
           let argc, args, sequence = 
-            try  StrMap.find n funs 
-            with Not_found -> raise (InvalidToken (FUN n, "at FUN")) in
+            match StrMap.find_opt n funs with
+            | Some f -> f
+            | None -> raise (InvalidToken (FUN n, "at FUN")) in
           let stack = dref stack argc in
           let rec assign (args : string list) (stack : token list) (vars : token StrMap.t) funs = (
             match args, stack with
@@ -1740,11 +1781,11 @@ let interpreter (tokens : token list) (arg_offset : int) = (
     | IF :: input -> (
       let expr, input = rpn (LET :: NAME "_EVAL_" :: input) [] [] in
       let vars = eval_rpn expr vars [] in
-      match StrMap.find "_EVAL_" vars with
-      | exception Not_found -> raise (InvalidToken (NAME "_EVAL_", "at IF"))
-      | BOOL true           -> iterate (strip_else input) vars funs
-      | BOOL false          -> iterate (strip_if input) vars funs
-      | eval                -> raise (InvalidToken (eval, "at IF"))
+      match StrMap.find_opt "_EVAL_" vars with
+      | None            -> raise (InvalidToken (NAME "_EVAL_", "at IF"))
+      | Some BOOL true  -> iterate (strip_else input) vars funs
+      | Some BOOL false -> iterate (strip_if input) vars funs
+      | Some eval       -> raise (InvalidToken (eval, "at IF"))
     )
     | RETURN :: input -> (
       let expr, _ = rpn (LET :: NAME "_RETURN_" :: input) [] [] in
@@ -1755,9 +1796,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
       let copy, stack = copy_while stack in
       let rec loop (vars : token StrMap.t) = (
         let vars = eval_rpn cond vars [] in
-        match StrMap.find "_EVAL_" vars with
-        | exception Not_found -> raise (InvalidToken (NAME "_EVAL_", "at WHILE"))
-        | BOOL true ->
+        match StrMap.find_opt "_EVAL_" vars with
+        | None -> raise (InvalidToken (NAME "_EVAL_", "at WHILE"))
+        | Some BOOL true ->
           let vars = iterate copy vars funs in
           if StrMap.mem "_RETURN_" vars then
             vars
@@ -1765,8 +1806,8 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             iterate stack (StrMap.remove "_BREAK_" vars) funs
           else
             loop vars
-        | BOOL false -> iterate stack vars funs
-        | eval -> raise (InvalidToken (eval, "at WHILE"))
+        | Some BOOL false -> iterate stack vars funs
+        | Some eval -> raise (InvalidToken (eval, "at WHILE"))
       ) in
       loop vars
     )
@@ -1778,9 +1819,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
       let copy, stack = copy_for stack in
       let rec loop (vars : token StrMap.t) = (
         let vars = eval_rpn cond vars [] in
-        match StrMap.find "_EVAL_" vars with
-        | exception Not_found -> raise (InvalidToken (NAME "_EVAL_", "at FOR"))
-        | BOOL true ->
+        match StrMap.find_opt "_EVAL_" vars with
+        | None -> raise (InvalidToken (NAME "_EVAL_", "at FOR"))
+        | Some BOOL true ->
           let vars = iterate copy vars funs in
           if StrMap.mem "_RETURN_" vars then
             vars
@@ -1788,8 +1829,8 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             iterate stack (StrMap.remove "_BREAK_" vars) funs
           else
             loop (eval_rpn term vars [])
-        | BOOL false -> iterate stack vars funs
-        | eval -> raise (InvalidToken (eval, "at FOR"))
+        | Some BOOL false -> iterate stack vars funs
+        | Some eval -> raise (InvalidToken (eval, "at FOR"))
       ) in
       loop vars
     )
@@ -1838,6 +1879,10 @@ let () = (
     | exception InvalidFunction s ->
       Printf.fprintf stderr "Encountered an exception InvalidFunction %s!\n" s
     | exception e -> raise e
-    | _ -> ()
+    | vars -> (
+      match StrMap.find_opt "_RETURN_" vars with
+      | Some INT i -> exit i
+      | _ -> ()
+    )
   )
 )

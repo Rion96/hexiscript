@@ -4,15 +4,41 @@ if catch UTIL_HEXI # Like #ifndef in C
 # Consts
 define UNDEFINED UTIL_HEXI # Use to delete functions/definions
 define UTIL_HEXI true
+define NEWLINE   "\n"
 define null      0
 define pi        3.141592654
-define euler     2.718281828
+define e         2.718281828
 define stdin     "/dev/stdin"
 define stdout    "/dev/stdout"
 define stderr    "/dev/stderr"
+define int       "int"
+define str       "str"
+define char      "char"
+define bool      "bool"
+define float     "float"
 
 fun assertnot a s; if a; println "Assert_Error Message: " + s; throw Assert_Error; endif; endfun
 fun assert a s; assertnot (!a) s; endfun
+
+fun sleep f
+  assertnot (catch (tonum f)) "sleep: NaN"
+  run "sleep " + f
+endfun
+
+fun open_append f
+  define i openin f
+  if (catch i); return i; endif
+  define s   UNDEFINED
+  define out ""
+  while !(catch (let s read str i))
+    let out (out + s + NEWLINE)
+  endwhile
+  close i
+  let f openout f
+  if (catch f); return f; endif
+  write out f
+  return f
+endfun
 
 fun fprint f s
   let f openout f
@@ -20,7 +46,7 @@ fun fprint f s
   write s f
   close f
 endfun
-fun fprintln f s; fprint f (s + "\n"); endfun
+fun fprintln f s; fprint f s; println ""; endfun
 
 fun to_upper s
   # Generally you don't need to be so careful, but since 'util.hexi' is intended
@@ -110,7 +136,7 @@ endfun
 fun string_split s delim
   define i   UNDEFINED
   define j   UNDEFINED
-  define ret dict 32
+  define ret dict len s / 2
   let j      0
   let ret[0] ""
   for let i 0; i < len s; i++
@@ -358,18 +384,18 @@ endfun
 fun array_quick s delim type
   define res string_split s delim
   define res array_copy res
-  if type = "int"
+  if type = int
     fun mapper x; return toint x; endfun
-    define res array_map res
-  elif type = "bool"
+    let res array_map res
+  elif type = bool
     fun mapper x; if x = "true"; return true; else return false; endif; endfun
-    define res array_map res
-  elif type = "float"
+    let res array_map res
+  elif type = float
     fun mapper x; return tonum x; endfun
-    define res array_map res
-  elif type = "char"
+    let res array_map res
+  elif type = char
     fun mapper x; return tochar x; endfun
-    define res array_map res
+    let res array_map res
   endif
   return res
 endfun
@@ -410,7 +436,7 @@ fun array_findarg a
   define acc a[0]
   for let i 1; i < len a; i++
     if argcond acc a[i]
-      define arg i; define acc a[i]
+      let arg i; let acc a[i]
     endif
   endfor
   return arg
@@ -527,7 +553,7 @@ fun tree_flatten t
     define e  array_create 1 t[elem]
     define tl tree_flatten t[left]
     define tr tree_flatten t[right]
-    define tl array_concat tl e
+    let tl array_concat tl e
     return array_concat tl tr
   endif
 endfun
