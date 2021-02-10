@@ -1,0 +1,21 @@
+#!/bin/env hexi
+include "util.hexi"
+
+if len args < 2
+  fprint stderr "Usage: grep WORD [FILE]\n"
+  return 1
+endif
+if len args >= 3
+  let f openin args[2]
+  if catch f
+    fprint stderr ("grep: " + args[2] + ": File not found\n")
+    return 1
+  endif
+else
+  let f openin stdin
+endif
+while !(catch (let s read str f))
+  let a kmp s args[1]
+  if len a > 0; println s; endif
+endwhile
+close f
