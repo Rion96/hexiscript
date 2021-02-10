@@ -28,7 +28,7 @@
 		"keywords": {
 			"patterns": [{
 				"name": "keyword.control.hexiscript",
-				"match": "\\b(continue|exists|free|include|catch|for|endfor|read|write|throw|openin|openout|close|scan|let|define|else|endif|elif|if|endfun|return|while|endwhile|println|print|break|cd|cwd|env|run)\\b"
+				"match": "\\b(isdir|is|dir|continue|exists|free|include|catch|for|endfor|read|write|throw|openin|openout|close|scan|let|define|else|endif|elif|if|endfun|return|while|endwhile|println|print|break|cd|cwd|env|run)\\b"
 			},
 			{
 				"name": "keyword.operator.new",

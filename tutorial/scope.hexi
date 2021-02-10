@@ -54,9 +54,12 @@ endfun
 modify_global_array()
 print_global_array()
 
-# The variable itself can only be modified using define!
+# For basic values using 'let' or ++/-- will only modify variable in local scope!
 define x 0
-println "++x does not work with definitions: " + (catch (++x)) # Analogous for let and the other ++/-- operators
+let x (x + 5)
+println "local:  x = " + x # Analogous for ++/-- operators
+fun f; println "global: x = " + x; endfun
+f()
 
 # 2. Block Scope
 # There is no block scope for local variables

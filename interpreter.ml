@@ -2,8 +2,8 @@ module StrMap = Map.Make (String)
 
 type token =
   | NAME of string | CD | CWD | ENV | OUTOFBOUNDS of int
-  | FUN of string | ENDFUN | CONTINUE | RUN
-  | INT of int | TONUM | DICT | KEYS | ELIF
+  | FUN of string | ENDFUN | CONTINUE | RUN | DIR | ISDIR
+  | INT of int | TONUM | DICT | KEYS | ELIF | IS
   | FLOAT of float | DICTIONARY of (string, token) Hashtbl.t
   | BOOL of bool | SCAN_ERR | TONUM_ERR of string
   | CHAR of char | TOCHAR | NOT_FOUND of string | EXISTS
@@ -13,7 +13,7 @@ type token =
   | ARRAY of token array | ARR | DREF | FLOOR | CEIL
   | LET | GLET | PRINT | PRINTLN | POSTFIX_INCR | POSTFIX_DECR
   | IF | ELSE | ENDIF | WHILE | ENDWHILE | FOR | ENDFOR
-  | NEWLINE | ERROR | LIST of token list | SEQ | RETURN
+  | NEWLINE | ERROR of string | LIST of token list | SEQ | RETURN
   | UNOP_MINUS | NOT | POW | PREFIX_INCR | PREFIX_DECR
   | PLUS | MINUS | MULT | DIV | MOD | SCAN | LEN | INCLUDE | EXP
   | START | END | BR_START | BR_END | BREAK | RAND | FREE | SQRT
@@ -75,7 +75,7 @@ let rec string_of_token (tok : token) = (
   | FOR           -> "FOR"
   | ENDFOR        -> "ENDFOR"
   | NEWLINE       -> "NEWLINE"
-  | ERROR         -> "ERROR"
+  | ERROR s       -> ("ERROR " ^ s)
   | LIST l        -> ("LIST " ^ (print_list l))
   | SEQ           -> "SEQ"
   | RETURN        -> "RETURN"
@@ -143,6 +143,9 @@ let rec string_of_token (tok : token) = (
   | CWD           -> "CWD"
   | ENV           -> "ENV"
   | RUN           -> "RUN"
+  | DIR           -> "DIR"
+  | ISDIR         -> "ISDIR"
+  | IS            -> "IS"
   | OUTOFBOUNDS i -> ("OUTOFBOUNDS " ^ (string_of_int i))
 )
 
@@ -178,8 +181,7 @@ let tokenizer (stack : char list) = (
       with exn ->
         try
           FLOAT (float_of_string buffer), stack
-        with exn ->
-          NAME buffer, stack
+        with exn -> ERROR ("at num_token: " ^ buffer ^ " is NaN!"), stack
   ) in
   let char_token = (
     function
@@ -191,7 +193,7 @@ let tokenizer (stack : char list) = (
     | 't' :: '\\' :: '\'' :: stack -> CHAR '\t', stack
     | 'b' :: '\\' :: '\'' :: stack -> CHAR '\b', stack
     | c :: '\'' :: stack -> CHAR c, stack
-    | stack -> ERROR, stack
+    | stack -> ERROR "at char_token", stack
   ) in
   let rec str_token (buffer : string) = (
     function
@@ -202,13 +204,17 @@ let tokenizer (stack : char list) = (
     | 'r' :: '\\' :: tl -> str_token ((String.make 1 '\r') ^ buffer) tl
     | 't' :: '\\' :: tl -> str_token ((String.make 1 '\t') ^ buffer) tl
     | 'b' :: '\\' :: tl -> str_token ((String.make 1 '\b') ^ buffer) tl
+    | '\n' :: tl | '\r' :: tl
+    | '\t' :: tl | '\b' :: tl -> str_token buffer tl
     | '"' :: stack -> STR buffer, stack
     | hd :: tl -> str_token ((String.make 1 hd) ^ buffer) tl
-    | [] -> ERROR, []
+    | [] -> ERROR "at str_token", []
   ) in
   let rec name_token (buffer : string) (input : char list) = (
     match input with
-    | '0'..'9' :: c :: _ when sep c -> ERROR, input
+    | ('0'..'9' as d) :: c :: _ when sep c ->
+      let buffer = String.make 1 d in
+      ERROR ("at name_token: " ^ buffer ^ " cannot start with number!"), input
     | c :: _ when sep c -> NAME buffer, input
     | 'x' :: '0' :: tl ->
       num_token ("0x" ^ buffer) tl
@@ -220,7 +226,7 @@ let tokenizer (stack : char list) = (
                  || hd >= 'a' && hd <= 'z'
                  || hd >= '0' && hd <= '9' ->
       name_token ((String.make 1 hd) ^ buffer) tl
-    | stack -> ERROR, stack
+    | stack -> ERROR ("at name_token: " ^ buffer), stack
   ) in
   let rec iterate (buffer : token list) = (
     function
@@ -533,6 +539,18 @@ let tokenizer (stack : char list) = (
     | 'e' :: 'n' :: 'i' :: 'f' :: 'e' :: 'd' :: [] -> (GLET :: buffer)
     | 'e' :: 'n' :: 'i' :: 'f' :: 'e' :: 'd' :: c :: tl when sep c ->
       iterate (GLET :: buffer) (c :: tl)
+    (* isdir *)
+    | 'r' :: 'i' :: 'd' :: 's' :: 'i' :: [] -> (ISDIR :: buffer)
+    | 'r' :: 'i' :: 'd' :: 's' :: 'i' :: c :: tl when sep c ->
+      iterate (ISDIR :: buffer) (c :: tl)
+    (* dir *)
+    | 'r' :: 'i' :: 'd' :: [] -> (DIR :: buffer)
+    | 'r' :: 'i' :: 'd' :: c :: tl when sep c ->
+      iterate (DIR :: buffer) (c :: tl)
+    (* is *)
+    | 's' :: 'i' :: [] -> (IS :: buffer)
+    | 's' :: 'i' :: c :: tl when sep c ->
+      iterate (IS :: buffer) (c :: tl)
     | '\'' :: tl ->
       let tok, stack = char_token tl in
       iterate (tok :: buffer) stack
@@ -546,8 +564,8 @@ let tokenizer (stack : char list) = (
     | ('A'..'Z' as c) :: stack ->
       let tok, stack = name_token "" (c :: stack) in
       iterate (tok :: buffer) stack
-    | _ :: stack ->
-      iterate (ERROR :: buffer) stack
+    | c :: stack ->
+      iterate (ERROR (String.make 1 c) :: buffer) stack
     | [] -> 
       buffer
   ) in
@@ -593,9 +611,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             | LEN |  RAND | UNOP_MINUS | OPENIN | CLOSE | READ | EXISTS
             | NOT | FLOOR | CEIL | TONUM | OPENOUT | CATCH | SQRT | ENV
             | POW | PREFIX_DECR | PREFIX_INCR | B_NOT | ABS | KEYS| CD
-            | TOSTR | TOCHAR | LOG | LN | ASIN | ACOS | ATAN | CWD
-            | SINH | COSH | TANH | SIN | COS | TAN | EXP | SCAN -> 1
-            | MULT | DIV | MOD -> 2
+            | TOSTR | TOCHAR | LOG | LN | ASIN | ACOS | ATAN | CWD | DIR
+            | ISDIR | SINH | COSH | TANH | SIN | COS | TAN | EXP | SCAN -> 1
+            | MULT | DIV | MOD | IS -> 2
             | PLUS | MINUS -> 3
             | B_SHIFTL | B_ASHIFTR | B_LSHIFTR -> 4
             | LESS | LEQ | GREATER | GEQ -> 5
@@ -847,15 +865,24 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             | tok -> raise (InvalidToken (tok, "at PREFIX_INCR (array)"))
           )
           | NAME n :: stack -> (
-            match StrMap.find_opt n vars with
-            | None -> eval_rpn input vars (UNDEFINED n :: stack)
-            | Some INT i ->
+            let elem = (
+              match StrMap.find_opt n vars with
+              | Some elem -> elem
+              | None -> (
+                match StrMap.find_opt ("_GLOBAL_" ^ n) funs with
+                | Some (_, _, [elem]) -> elem
+                | _ -> UNDEFINED n
+              )
+            ) in
+            match elem with
+            | UNDEFINED n -> eval_rpn input vars (UNDEFINED n :: stack)
+            | INT i ->
               let v = INT (i + 1) in
               eval_rpn input (StrMap.add n v (StrMap.remove n vars)) (v :: stack)
-            | Some FLOAT f ->
+            | FLOAT f ->
               let v = FLOAT (f +. 1.) in
               eval_rpn input (StrMap.add n v (StrMap.remove n vars)) (v :: stack)
-            | Some tok -> raise (InvalidToken (tok, "at PREFIX_INCR"))
+            | tok -> raise (InvalidToken (tok, "at PREFIX_INCR"))
           )
           | stack -> raise (InvalidToken (LIST stack, "at PREFIX_INCR"))
         )
@@ -884,15 +911,24 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             | tok -> raise (InvalidToken (tok, "at PREFIX_DECR (array)"))
           )
           | NAME n :: stack -> (
-            match StrMap.find_opt n vars with
-            | None -> eval_rpn input vars (UNDEFINED n :: stack)
-            | Some INT i ->
+            let elem = (
+              match StrMap.find_opt n vars with
+              | Some elem -> elem
+              | None -> (
+                match StrMap.find_opt ("_GLOBAL_" ^ n) funs with
+                | Some (_, _, [elem]) -> elem
+                | _ -> UNDEFINED n
+              )
+            ) in
+            match elem with
+            | UNDEFINED n -> eval_rpn input vars (UNDEFINED n :: stack)
+            | INT i ->
               let v = INT (i - 1) in
               eval_rpn input (StrMap.add n v (StrMap.remove n vars)) (v :: stack)
-            | Some FLOAT f ->
+            | FLOAT f ->
               let v = FLOAT (f -. 1.) in
               eval_rpn input (StrMap.add n v (StrMap.remove n vars)) (v :: stack)
-            | Some tok -> raise (InvalidToken (tok, "at PREFIX_DECR"))
+            | tok -> raise (InvalidToken (tok, "at PREFIX_DECR"))
           )
           | stack -> raise (InvalidToken (LIST stack, "at PREFIX_DECR"))
         )
@@ -921,15 +957,24 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             | tok -> raise (InvalidToken (tok, "at POSTFIX_INCR (array)"))
           )
           | NAME n :: stack -> (
-            match StrMap.find_opt n vars with
-            | None -> eval_rpn input vars (UNDEFINED n :: stack)
-            | Some INT i ->
+            let elem = (
+              match StrMap.find_opt n vars with
+              | Some elem -> elem
+              | None -> (
+                match StrMap.find_opt ("_GLOBAL_" ^ n) funs with
+                | Some (_, _, [elem]) -> elem
+                | _ -> UNDEFINED n
+              )
+            ) in
+            match elem with
+            | UNDEFINED n -> eval_rpn input vars (UNDEFINED n :: stack)
+            | INT i ->
               let v = INT (i + 1) in
               eval_rpn input (StrMap.add n v (StrMap.remove n vars)) (INT i :: stack)
-            | Some FLOAT f ->
+            | FLOAT f ->
               let v = FLOAT (f +. 1.) in
               eval_rpn input (StrMap.add n v (StrMap.remove n vars)) (FLOAT f :: stack)
-            | Some tok -> raise (InvalidToken (tok, "at POSTFIX_INCR"))
+            | tok -> raise (InvalidToken (tok, "at POSTFIX_INCR"))
           )
           | stack -> raise (InvalidToken (LIST stack, "at POSTFIX_INCR"))
         )
@@ -958,15 +1003,24 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             | tok -> raise (InvalidToken (tok, "at POSTFIX_DECR (array)"))
           )
           | NAME n :: stack -> (
-            match StrMap.find_opt n vars with
-            | None -> eval_rpn input vars (UNDEFINED n :: stack)
-            | Some INT i ->
+            let elem = (
+              match StrMap.find_opt n vars with
+              | Some elem -> elem
+              | None -> (
+                match StrMap.find_opt ("_GLOBAL_" ^ n) funs with
+                | Some (_, _, [elem]) -> elem
+                | _ -> UNDEFINED n
+              )
+            ) in
+            match elem with
+            | UNDEFINED n -> eval_rpn input vars (UNDEFINED n :: stack)
+            | INT i ->
               let v = INT (i - 1) in
               eval_rpn input (StrMap.add n v (StrMap.remove n vars)) (INT i :: stack)
-            | Some FLOAT f ->
+            | FLOAT f ->
               let v = FLOAT (f -. 1.) in
               eval_rpn input (StrMap.add n v (StrMap.remove n vars)) (FLOAT f :: stack)
-            | Some tok -> raise (InvalidToken (tok, "at POSTFIX_DECR"))
+            | tok -> raise (InvalidToken (tok, "at POSTFIX_DECR"))
           )
           | stack -> raise (InvalidToken (LIST stack, "at POSTFIX_DECR"))
         )
@@ -1144,6 +1198,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn (PLUS :: input) vars (STR (string_of_bool b) :: e :: stack)
           | e :: BOOL b :: stack ->
             eval_rpn (PLUS :: input) vars (e :: STR (string_of_bool b) :: stack)
+          | b :: a :: stack -> 
+            let a, b = string_of_token a, string_of_token b in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ", " ^ b ^ ") at PLUS") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at PLUS"))
         )
         | MINUS -> (
@@ -1168,6 +1225,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           | CHAR b :: CHAR a :: stack ->
             let c = Char.code a - Char.code b in
             eval_rpn input vars (INT c :: stack)
+          | b :: a :: stack -> 
+            let a, b = string_of_token a, string_of_token b in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ", " ^ b ^ ") at MINUS") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at MINUS"))
         )
         | UNOP_MINUS -> (
@@ -1177,6 +1237,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn input vars ((INT (-a)) :: stack)
           | FLOAT a :: stack ->
             eval_rpn input vars ((FLOAT (-.a) :: stack))
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at UNOP_MINUS") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at UNOP_MINUS"))
         )
         | MULT -> (
@@ -1190,6 +1253,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           | INT i :: FLOAT f :: stack ->
             let i = float_of_int i in
             eval_rpn input vars ((FLOAT (i *. f) :: stack))
+          | b :: a :: stack -> 
+            let a, b = string_of_token a, string_of_token b in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ", " ^ b ^ ") at MULT") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at MULT"))
         )
         | DIV -> (
@@ -1205,6 +1271,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           | INT b :: FLOAT a :: stack ->
             let b = float_of_int b in
             eval_rpn input vars ((FLOAT (a /. b) :: stack))
+          | b :: a :: stack -> 
+            let a, b = string_of_token a, string_of_token b in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ", " ^ b ^ ") at DIV") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at DIV"))
         )
         | MOD -> (
@@ -1212,6 +1281,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           match stack with
           | INT b :: INT a :: stack ->
             eval_rpn input vars ((INT (a mod b)) :: stack)
+          | b :: a :: stack -> 
+            let a, b = string_of_token a, string_of_token b in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ", " ^ b ^ ") at MOD") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at MOD"))
         )
         | LESS -> (
@@ -1230,6 +1302,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn input vars (BOOL (a < b) :: stack)
           | CHAR b :: CHAR a :: stack ->
             eval_rpn input vars (BOOL (a < b) :: stack)
+          | b :: a :: stack -> 
+            let a, b = string_of_token a, string_of_token b in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ", " ^ b ^ ") at LESS") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at LESS"))
         )
         | GREATER -> (
@@ -1248,6 +1323,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn input vars (BOOL (a > b) :: stack)
           | CHAR b :: CHAR a :: stack ->
             eval_rpn input vars (BOOL (a > b) :: stack)
+          | b :: a :: stack -> 
+            let a, b = string_of_token a, string_of_token b in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ", " ^ b ^ ") at GREATER") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at GREATER"))
         )
         | LEQ -> (
@@ -1266,6 +1344,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn input vars (BOOL (a <= b) :: stack)
           | CHAR b :: CHAR a :: stack ->
             eval_rpn input vars (BOOL (a <= b) :: stack)
+          | b :: a :: stack -> 
+            let a, b = string_of_token a, string_of_token b in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ", " ^ b ^ ") at LEQ") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at LEQ"))
         )
         | GEQ -> (
@@ -1284,6 +1365,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn input vars (BOOL (a >= b) :: stack)
           | CHAR b :: CHAR a :: stack ->
             eval_rpn input vars (BOOL (a >= b) :: stack)
+          | b :: a :: stack -> 
+            let a, b = string_of_token a, string_of_token b in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ", " ^ b ^ ") at GEQ") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at GEQ"))
         )
         | NEQ -> (
@@ -1313,6 +1397,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn input vars ((BOOL true) :: stack)
           | _ :: DICTIONARY _ :: stack ->
             eval_rpn input vars ((BOOL true) :: stack)
+          | b :: a :: stack -> 
+            let a, b = string_of_token a, string_of_token b in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ", " ^ b ^ ") at NEQ") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at NEQ"))
         )
         | EQ -> (
@@ -1342,22 +1429,33 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn input vars ((BOOL false) :: stack)
           | _ :: DICTIONARY _ :: stack ->
             eval_rpn input vars ((BOOL false) :: stack)
+          | b :: a :: stack -> 
+            let a, b = string_of_token a, string_of_token b in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ", " ^ b ^ ") at EQ") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at EQ"))
         )
         | AND -> (
           let stack = dref stack 2 in
           match stack with
+          | _ :: BOOL false :: stack -> eval_rpn input vars (BOOL false :: stack)
           | BOOL b :: BOOL a :: stack ->
             BOOL (a && b) :: stack
             |> eval_rpn input vars
+          | b :: a :: stack -> 
+            let a, b = string_of_token a, string_of_token b in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ", " ^ b ^ ") at AND") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at AND"))
         )
         | OR -> (
           let stack = dref stack 2 in
           match stack with
+          | _ :: BOOL true :: stack -> eval_rpn input vars (BOOL true :: stack)
           | BOOL b :: BOOL a :: stack ->
             BOOL (a || b) :: stack
             |> eval_rpn input vars
+          | b :: a :: stack -> 
+            let a, b = string_of_token a, string_of_token b in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ", " ^ b ^ ") at OR") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at OR"))
         )
         | NOT -> (
@@ -1366,6 +1464,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           | BOOL a :: stack ->
             BOOL (not a) :: stack
             |> eval_rpn input vars
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at EQ") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at NOT"))
         )
         | POW -> (
@@ -1381,6 +1482,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           | INT b :: FLOAT a :: stack ->
             let b = float_of_int b in
             eval_rpn input vars ((FLOAT (a ** b)) :: stack)
+          | b :: a :: stack -> 
+            let a, b = string_of_token a, string_of_token b in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ", " ^ b ^ ") at POW") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at POW"))
         )
         | LEN -> (
@@ -1392,6 +1496,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn input vars ((INT (Array.length a)) :: stack)
           | DICTIONARY d :: stack ->
             eval_rpn input vars ((INT (Hashtbl.length d)) :: stack)
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at LEN") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at LEN"))
         )
         | RAND -> (
@@ -1399,6 +1506,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           match stack with
           | INT i :: stack ->
             eval_rpn input vars (INT (Random.int i) :: stack)
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at RAND") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at RAND"))
         )
         | FLOOR -> (
@@ -1408,6 +1518,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           | FLOAT f :: stack ->
             INT (floor f |> int_of_float) :: stack
             |> eval_rpn input vars
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at FLOOR") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at FLOOR"))
         )
         | CEIL -> (
@@ -1417,6 +1530,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           | FLOAT f :: stack ->
             INT (ceil f |> int_of_float) :: stack
             |> eval_rpn input vars
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at CEIL") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at CEIL"))
         )
         | TONUM -> (
@@ -1444,6 +1560,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             | file        -> eval_rpn input vars (INCHAN file :: stack)
             | exception _ -> eval_rpn input vars (NOT_FOUND n :: stack)
           )
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at OPENIN") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at OPENIN"))
         )
         | OPENOUT -> (
@@ -1454,6 +1573,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             | file        -> eval_rpn input vars (OUTCHAN file :: stack)
             | exception _ -> eval_rpn input vars (NOT_FOUND  n :: stack)
           )
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at OPENOUT") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at OPENOUT"))
         )
         | CLOSE -> (
@@ -1461,6 +1583,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           match stack with
           | INCHAN c  :: stack -> close_in  c; eval_rpn input vars stack
           | OUTCHAN c :: stack -> close_out c; eval_rpn input vars stack
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at CLOSE") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at CLOSE"))
         )
         | CATCH -> (
@@ -1492,6 +1617,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             )
             | _ -> raise (InvalidToken (NAME t, "at READ"))
           )
+          | b :: a :: stack -> 
+            let a, b = string_of_token a, string_of_token b in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ", " ^ b ^ ") at READ") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at READ"))
         )
         | WRITE -> (
@@ -1505,6 +1633,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             output_string o (string_of_int i); eval_rpn input vars stack
           | OUTCHAN o :: FLOAT f :: stack ->
             output_string o (string_of_float f); eval_rpn input vars stack
+          | b :: a :: stack -> 
+            let a, b = string_of_token a, string_of_token b in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ", " ^ b ^ ") at WRITE") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at WRITE"))
         )
         | TOCHAR -> (
@@ -1518,6 +1649,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             else eval_rpn input vars (OUTOFBOUNDS 0 :: stack)
           | CHAR _ :: _     ->
             eval_rpn input vars stack
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at TOCHAR") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at TOCHAR"))
         )
         | TOSTR -> (
@@ -1533,6 +1667,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn input vars (STR (String.make 1 c) :: stack)
           | BOOL b :: stack ->
             eval_rpn input vars (STR (string_of_bool b) :: stack)
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at TOSTR") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at TOSTR"))
         )
         | B_AND -> (
@@ -1540,6 +1677,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           match stack with
           | INT b :: INT a :: stack ->
             eval_rpn input vars (INT (a land b) :: stack)
+          | b :: a :: stack -> 
+            let a, b = string_of_token a, string_of_token b in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ", " ^ b ^ ") at B_AND") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at B_AND"))
         )
         | B_OR -> (
@@ -1547,6 +1687,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           match stack with
           | INT b :: INT a :: stack ->
             eval_rpn input vars (INT (a lor b) :: stack)
+          | b :: a :: stack -> 
+            let a, b = string_of_token a, string_of_token b in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ", " ^ b ^ ") at B_OR") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at B_OR"))
         )
         | B_XOR -> (
@@ -1554,6 +1697,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           match stack with
           | INT b :: INT a :: stack ->
             eval_rpn input vars (INT (a lxor b) :: stack)
+          | b :: a :: stack -> 
+            let a, b = string_of_token a, string_of_token b in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ", " ^ b ^ ") at B_XOR") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at B_XOR"))
         )
         | B_SHIFTL -> (
@@ -1561,6 +1707,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           match stack with
           | INT b :: INT a :: stack ->
             eval_rpn input vars (INT (a lsl b) :: stack)
+          | b :: a :: stack -> 
+            let a, b = string_of_token a, string_of_token b in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ", " ^ b ^ ") at B_SHIFTL") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at B_SHIFTL"))
         )
         | B_LSHIFTR -> (
@@ -1568,6 +1717,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           match stack with
           | INT b :: INT a :: stack ->
             eval_rpn input vars (INT (a asr b) :: stack)
+          | b :: a :: stack -> 
+            let a, b = string_of_token a, string_of_token b in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ", " ^ b ^ ") at B_LSHIFTR") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at B_LSHIFTR"))
         )
         | B_ASHIFTR -> (
@@ -1575,6 +1727,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           match stack with
           | INT b :: INT a :: stack ->
             eval_rpn input vars (INT (a lsr b) :: stack)
+          | b :: a :: stack -> 
+            let a, b = string_of_token a, string_of_token b in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ", " ^ b ^ ") at B_ASHIFTR") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at B_ASHIFTR"))
         )
         | B_NOT -> (
@@ -1582,6 +1737,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           match stack with
           | INT i :: stack ->
             eval_rpn input vars (INT (lnot i) :: stack)
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at B_NOT") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at B_NOT"))
         )
         | SINH -> (
@@ -1591,6 +1749,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn input vars (FLOAT (sinh f) :: stack)
           | INT i :: stack ->
             eval_rpn input vars (FLOAT (sinh (float_of_int i)) :: stack)
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at SINH") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at SINH"))
         )
         | ASIN -> (
@@ -1600,6 +1761,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn input vars (FLOAT (asin f) :: stack)
           | INT i :: stack ->
             eval_rpn input vars (FLOAT (asin (float_of_int i)) :: stack)
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at ASIN") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at ASIN"))
         )
         | SIN -> (
@@ -1609,6 +1773,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn input vars (FLOAT (sin f) :: stack)
           | INT i :: stack ->
             eval_rpn input vars (FLOAT (sin (float_of_int i)) :: stack)
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at SIN") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at SIN"))
         )
         | COSH -> (
@@ -1618,6 +1785,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn input vars (FLOAT (cosh f) :: stack)
           | INT i :: stack ->
             eval_rpn input vars (FLOAT (cosh (float_of_int i)) :: stack)
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at COSH") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at COSH"))
         )
         | ACOS -> (
@@ -1627,6 +1797,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn input vars (FLOAT (acos f) :: stack)
           | INT i :: stack ->
             eval_rpn input vars (FLOAT (acos (float_of_int i)) :: stack)
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at ACOS") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at ACOS"))
         )
         | COS -> (
@@ -1636,6 +1809,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn input vars (FLOAT (cos f) :: stack)
           | INT i :: stack ->
             eval_rpn input vars (FLOAT (cos (float_of_int i)) :: stack)
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at COS") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at COS"))
         )
         | TANH -> (
@@ -1645,6 +1821,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn input vars (FLOAT (tanh f) :: stack)
           | INT i :: stack ->
             eval_rpn input vars (FLOAT (tanh (float_of_int i)) :: stack)
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at TANH") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at TANH"))
         )
         | ATAN -> (
@@ -1654,6 +1833,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn input vars (FLOAT (atan f) :: stack)
           | INT i :: stack ->
             eval_rpn input vars (FLOAT (atan (float_of_int i)) :: stack)
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at ATAN") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at ATAN"))
         )
         | TAN -> (
@@ -1663,6 +1845,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn input vars (FLOAT (tan f) :: stack)
           | INT i :: stack ->
             eval_rpn input vars (FLOAT (tan (float_of_int i)) :: stack)
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at TAN") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at TAN"))
         )
         | ABS -> (
@@ -1672,6 +1857,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn input vars (FLOAT (abs_float f) :: stack)
           | INT i :: stack ->
             eval_rpn input vars (INT (abs i) :: stack)
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at ABS") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at ABS"))
         )
         | SQRT -> (
@@ -1681,6 +1869,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn input vars (FLOAT (sqrt f) :: stack)
           | INT i :: stack ->
             eval_rpn input vars (FLOAT (sqrt (float_of_int i)) :: stack)
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at SQRT") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at SQRT"))
         )
         | LOG -> (
@@ -1690,6 +1881,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn input vars (FLOAT (log10 f) :: stack)
           | INT i :: stack ->
             eval_rpn input vars (FLOAT (log10 (float_of_int i)) :: stack)
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at LOG") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at LOG"))
         )
         | LN -> (
@@ -1699,6 +1893,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn input vars (FLOAT (log f) :: stack)
           | INT i :: stack ->
             eval_rpn input vars (FLOAT (log (float_of_int i)) :: stack)
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at LN") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at LN"))
         )
         | EXP -> (
@@ -1708,6 +1905,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             eval_rpn input vars (FLOAT (exp f) :: stack)
           | INT i :: stack ->
             eval_rpn input vars (FLOAT (exp (float_of_int i)) :: stack)
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at EXP") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at EXP"))
         )
         | FREE -> (
@@ -1723,6 +1923,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           match stack with
           | STR s :: stack ->
             eval_rpn input vars (BOOL (Sys.file_exists s) :: stack)
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at EXISTS") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at EXISTS"))
         )
         | KEYS -> (
@@ -1732,6 +1935,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             let keys = Hashtbl.to_seq_keys d 
             |> Array.of_seq |> Array.map (fun e -> STR e) in
             eval_rpn input vars (ARRAY keys :: stack)
+          | a :: stack -> 
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ") at KEYS") :: stack)
           | stack -> raise (InvalidToken (LIST stack, "at KEYS"))
         )
         | CD -> (
@@ -1743,6 +1949,27 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             | ()          -> eval_rpn input vars (STR (Sys.getcwd ()) :: stack)
           )
           | stack -> raise (InvalidToken (LIST stack, "at CD"))
+        )
+        | DIR -> (
+          let stack = dref stack 1 in
+          match stack with
+          | STR s :: stack -> (
+            match Sys.readdir s with
+            | exception _ -> eval_rpn input vars (NOT_FOUND s :: stack)
+            | a -> ARRAY (Array.map (fun e -> STR e) a) :: stack
+                |> eval_rpn input vars
+          )
+          | stack -> raise (InvalidToken (LIST stack, "at DIR"))
+        )
+        | ISDIR -> (
+          let stack = dref stack 1 in
+          match stack with
+          | STR s :: stack -> (
+            match Sys.is_directory s with
+            | exception _ -> eval_rpn input vars (NOT_FOUND s :: stack)
+            | b -> eval_rpn input vars (BOOL b :: stack)
+          )
+          | stack -> raise (InvalidToken (LIST stack, "at ISDIR"))
         )
         | ENV -> (
           let stack = dref stack 1 in
@@ -1761,6 +1988,31 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             INT (Sys.command s) :: stack
             |> eval_rpn input vars
           | stack -> raise (InvalidToken (LIST stack, "at RUN"))
+        )
+        | IS -> (match stack with
+          | t :: stack -> (
+            let stack = dref stack 1 in
+            match t, stack with
+            | NAME   "str", STR _ :: stack -> eval_rpn input vars (BOOL true  :: stack)
+            |           _ , STR _ :: stack -> eval_rpn input vars (BOOL false :: stack)
+            | NAME   "int", INT _ :: stack -> eval_rpn input vars (BOOL true  :: stack)
+            |           _ , INT _ :: stack -> eval_rpn input vars (BOOL false :: stack)
+            | NAME  "char", CHAR _ :: stack -> eval_rpn input vars (BOOL true  :: stack)
+            |           _ , CHAR _ :: stack -> eval_rpn input vars (BOOL false :: stack)
+            | NAME  "bool", BOOL _ :: stack -> eval_rpn input vars (BOOL true  :: stack)
+            |           _ , BOOL _ :: stack -> eval_rpn input vars (BOOL false :: stack)
+            | NAME "float", FLOAT _ :: stack -> eval_rpn input vars (BOOL true  :: stack)
+            |           _ , FLOAT _ :: stack -> eval_rpn input vars (BOOL false :: stack)
+            |  ARR, ARRAY      _ :: stack -> eval_rpn input vars (BOOL true  :: stack)
+            |   _ , ARRAY      _ :: stack -> eval_rpn input vars (BOOL false :: stack)
+            | DICT, DICTIONARY _ :: stack -> eval_rpn input vars (BOOL true  :: stack)
+            |   _ , DICTIONARY _ :: stack -> eval_rpn input vars (BOOL false :: stack)
+            | a, b :: stack -> 
+              let a, b = string_of_token a, string_of_token b in
+              eval_rpn input vars (UNDEFINED ("(" ^ a ^ ", " ^ b ^ ") at IS") :: stack)
+            | _, [] -> raise (InvalidToken (LIST [], "at IS"))
+          )
+          | [] -> raise (InvalidToken (LIST [], "at IS"))
         )
         | CWD   -> eval_rpn input vars (STR (Sys.getcwd ()) :: stack)
         | THROW -> raise (InvalidToken (LIST stack, "at THROW"))
@@ -1840,7 +2092,8 @@ let interpreter (tokens : token list) (arg_offset : int) = (
       iterate input vars (StrMap.add n new_fun funs)
     | GLET :: NAME n :: input -> (
       let expr, input = rpn (LET :: NAME "_DEFINE_" :: input) [] [] in
-      let elem = StrMap.find "_DEFINE_" (eval_rpn expr vars []) in
+      let vars = eval_rpn expr vars [] in
+      let elem = StrMap.find "_DEFINE_" vars in
       let funs = StrMap.remove ("_GLOBAL_" ^ n) (StrMap.remove n funs) in
       iterate input vars (StrMap.add ("_GLOBAL_" ^ n) (0, [], [elem]) funs)
     )

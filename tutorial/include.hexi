@@ -1,10 +1,8 @@
 # The 'include' keyword lets us import the contents of other files
-# It functions similarly to the preprocessor #include in C,
+# It works similarly to the preprocessor #include in C
 # in that it just copies the contents into this file.
-
-# 'include' will first check the current directory
-# If it can't find the file there,
-# it will attempt to check in PATH
+# 'include' will first check the current directory.
+# If it can't find the file there, it will attempt to check in PATH
 
 # Syntax include "[FILENAME]"
 include "helper.hexi"
@@ -12,3 +10,6 @@ include "helper.hexi"
 println "sqrt(9) = " + floor square_root 9
 println to_upper "This should be upper case!"
 println to_lower "This Should Be Lower Case."
+
+# 'examples/util.hexi' contains many useful functions and definitions.
+# Consider including it in your files.
