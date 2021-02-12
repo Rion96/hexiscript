@@ -601,7 +601,7 @@ let find_file (name : string) = (
 let interpreter (tokens : token list) (arg_offset : int) = (
   let rec iterate (input : token list)
                   (vars : token StrMap.t)
-                  (funs : (int * string list * token list) StrMap.t) = (
+                  (funs : (int * string list * token list * string list) StrMap.t) = (
     let rec rpn (input : token list) (stack : token list) (output : token list) = (
       let rec precedence (op : token) (stack : token list) (output : token list) = (
         let higher_order (op : token) (stack_op : token) = (
@@ -734,17 +734,20 @@ let interpreter (tokens : token list) (arg_offset : int) = (
         | NAME n  :: input -> parse_args input (n :: output) (counter + 1)
         | _                -> raise (InvalidFunction "at parse_args")
       ) in 
-      let rec skip_fun (input : token list) (output : token list) (counter : int) = (
+      let rec skip_fun (input : token list) (output : token list)
+                       (locals : string list) (counter : int) = (
         match input with
-        | FUN "_DEF_" as hd :: tl -> skip_fun tl (hd :: output) (counter + 1)
-        | ENDFUN            :: tl when counter = 1 -> tl, List.rev output
-        | ENDFUN      as hd :: tl -> skip_fun tl (hd :: output) (counter - 1)
-        | hd                :: tl -> skip_fun tl (hd :: output) counter
+        | FUN "_DEF_" as hd :: tl -> skip_fun tl (hd :: output) locals (counter + 1)
+        | ENDFUN            :: tl when counter = 1 -> tl, List.rev output, locals
+        | ENDFUN      as hd :: tl -> skip_fun tl (hd :: output) locals (counter - 1)
+        | LET :: NAME n     :: tl when counter = 1 ->
+          skip_fun tl (LET :: NAME n :: output) (n :: locals) counter
+        | hd                :: tl -> skip_fun tl (hd :: output) locals counter
         | []                      -> raise (InvalidFunction "at skip_fun")
       ) in
-      let (input, argc, argv : token list * int * string list) = parse_args input [] 0 in
-      let (output, sequence  : token list * token list) = skip_fun input [] 1 in
-      (argc, argv, sequence), output
+      let (input, argc, argv) = parse_args input [] 0 in
+      let (output, sequence, locals) = skip_fun input [] [] 1 in
+      (argc, argv, sequence, locals), output
     ) in
     let rec eval_rpn (input : token list) (vars : token StrMap.t) (stack : token list) = (
       let dref (stack : token list) (n : int) = (
@@ -767,7 +770,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
                 | Some elem -> elem
                 | None -> (
                   match StrMap.find_opt ("_GLOBAL_" ^ a) funs with
-                  | Some (_, _, [elem]) -> elem
+                  | Some (_, _, [elem], _) -> elem
                   | _ -> UNDEFINED a
                 )
               ) in loop stack (elem :: buffer) (index + 1)
@@ -870,7 +873,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
               | Some elem -> elem
               | None -> (
                 match StrMap.find_opt ("_GLOBAL_" ^ n) funs with
-                | Some (_, _, [elem]) -> elem
+                | Some (_, _, [elem], _) -> elem
                 | _ -> UNDEFINED n
               )
             ) in
@@ -916,7 +919,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
               | Some elem -> elem
               | None -> (
                 match StrMap.find_opt ("_GLOBAL_" ^ n) funs with
-                | Some (_, _, [elem]) -> elem
+                | Some (_, _, [elem], _) -> elem
                 | _ -> UNDEFINED n
               )
             ) in
@@ -962,7 +965,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
               | Some elem -> elem
               | None -> (
                 match StrMap.find_opt ("_GLOBAL_" ^ n) funs with
-                | Some (_, _, [elem]) -> elem
+                | Some (_, _, [elem], _) -> elem
                 | _ -> UNDEFINED n
               )
             ) in
@@ -1008,7 +1011,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
               | Some elem -> elem
               | None -> (
                 match StrMap.find_opt ("_GLOBAL_" ^ n) funs with
-                | Some (_, _, [elem]) -> elem
+                | Some (_, _, [elem], _) -> elem
                 | _ -> UNDEFINED n
               )
             ) in
@@ -1061,7 +1064,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
               | Some elem -> elem
               | None -> (
                 match StrMap.find_opt ("_GLOBAL_" ^ n) funs with
-                | Some (_, _, [elem]) -> elem
+                | Some (_, _, [elem], _) -> elem
                 | _ -> UNDEFINED n
               )
             ) in
@@ -1090,7 +1093,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
               | Some elem -> elem
               | None -> (
                 match StrMap.find_opt ("_GLOBAL_" ^ n) funs with
-                | Some (_, _, [elem]) -> elem
+                | Some (_, _, [elem], _) -> elem
                 | _ -> UNDEFINED n
               )
             ) in
@@ -1102,7 +1105,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
           | stack -> raise (InvalidToken (LIST stack, "at DREF"))
         )
         | FUN n -> (
-          let argc, args, sequence = 
+          let argc, args, sequence, locals = 
             match StrMap.find_opt n funs with
             | Some f -> f
             | None -> raise (InvalidToken (FUN n, "at FUN")) in
@@ -1113,7 +1116,13 @@ let interpreter (tokens : token list) (arg_offset : int) = (
             | []      , _          -> vars, funs, stack
             | _                    -> raise (InvalidFunction ("at assign for FUN " ^ n))
           ) in
+          let rec set_locals (locals : string list) funs = (
+            match locals with
+            | hd :: tl -> set_locals tl (StrMap.remove hd funs)
+            | [] -> funs
+          ) in
           let fn_vars, fn_funs, stack = assign args stack StrMap.empty funs in
+          let fn_funs = set_locals locals fn_funs in
           let res_vars = iterate sequence fn_vars fn_funs in
           if StrMap.mem "_RETURN_" res_vars then
             StrMap.find "_RETURN_" res_vars :: stack
@@ -1261,6 +1270,9 @@ let interpreter (tokens : token list) (arg_offset : int) = (
         | DIV -> (
           let stack = dref stack 2 in
           match stack with
+          | INT 0 :: a :: stack ->
+            let a = string_of_token a in
+            eval_rpn input vars (UNDEFINED ("(" ^ a ^ ", INT 0) at DIV") :: stack)
           | INT b :: INT a :: stack ->
             eval_rpn input vars ((INT (a / b)) :: stack)
           | FLOAT b :: FLOAT a :: stack ->
@@ -2095,7 +2107,7 @@ let interpreter (tokens : token list) (arg_offset : int) = (
       let vars = eval_rpn expr vars [] in
       let elem = StrMap.find "_DEFINE_" vars in
       let funs = StrMap.remove ("_GLOBAL_" ^ n) (StrMap.remove n funs) in
-      iterate input vars (StrMap.add ("_GLOBAL_" ^ n) (0, [], [elem]) funs)
+      iterate input vars (StrMap.add ("_GLOBAL_" ^ n) (0, [], [elem], []) funs)
     )
     | _ -> (
       let expr, input = rpn input [] [] in
