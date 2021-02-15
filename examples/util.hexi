@@ -147,6 +147,43 @@ fun string_sub s from to
   return ret
 endfun
 
+# string_inv_sub s from to = string_sub s 0 from + string_sub s to (len s)
+fun string_inv_sub s from to
+  assert (0 <= from && from <= to && to <= len s) ("string_inv_sub: from=" + from + ", to=" + to)
+  let ret ""
+  for let i 0; i < from; i++
+    let ret (ret + s[i])
+  endfor
+  for let i to; i < len s; i++
+    let ret (ret + s[i])
+  endfor
+  return ret
+endfun
+
+fun string_filter_word s w
+  let occ kmp s w
+  for let i 0; i < len occ; i++
+    let s string_inv_sub s occ[i] (occ[i] + len w)
+  endfor
+  return s
+endfun
+
+fun string_insert_word s i w
+  let l string_sub s 0 i
+  let r string_sub s i (len s)
+  return l + w + r
+endfun
+
+fun string_replace_word s w new_w
+  let occ kmp s w
+  for let i 0; i < len occ; i++
+    let l string_sub s 0 occ[i]
+    let r string_sub s (occ[i] + len w) (len s)
+    let s l + new_w + r
+  endfor
+  return s
+endfun
+
 fun nat_order a b
   if a > b
     return 1

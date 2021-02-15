@@ -1,0 +1,1047 @@
+# hexiedit
+# A simple text editor written in hexiscript
+include "util.hexi"
+
+# Debug Flag
+define DEBUG false
+
+# TODO: mv to util.hexi
+fun array_inv_sub a from to
+  assert (0 <= from && from <= to && to <= len a) ("array_inv_sub: from=" + from + ", to=" + to)
+  let ret arr len a - (to - from)
+  for let i 0; i < from; i++
+    let ret[i] a[i]
+  endfor
+  for let i to; i < len a; i++
+    let ret[i - to + from] a[i]
+  endfor
+  return ret
+endfun
+
+# TODO: mv to util.hexi
+fun array_insert a i w
+  let a_l array_sub a 0 i
+  let a_r array_sub a i (len a)
+  let a   array_concat a_l w
+  return  array_concat a a_r
+endfun
+
+# TODO: mv to util.hexi
+fun dict_clear d
+  let k keys d
+  for let i 0; i < len k; i++
+    free d[k[i]]
+  endfor
+endfun
+
+# Tuples
+# TODO: mv to util.hexi
+fun tuple_create fst snd
+  let t    arr 2
+  let t[0] fst
+  let t[1] snd
+  return t
+endfun
+
+# TODO: mv to util.hexi
+fun fst t
+  assert (len t > 0) "fst: arg is empty"
+  return t[0]
+endfun
+
+# TODO: mv to util.hexi
+fun snd t
+  assert (len t > 1) "snd: arg not large enough"
+  return t[1]
+endfun
+
+# Prepend filler to s until size requirement is met
+fun string_format_prepend s filler size
+  while len s < size; let s filler + s; endwhile
+  return s
+endfun
+
+# Expand array to fit size i
+fun array_expand_back a i
+  if i > len a
+    let i i - len a
+    let b array_create i ""
+    return array_concat a b
+  endif
+  return a
+endfun
+
+# Checks if array is empty or contains empty structs
+fun array_empty a
+  if len a = 0; return true; endif
+  for let i 0; i < len a; i++
+    let l len a[i]
+    if catch l || l > 0; return false; endif
+  endfor
+  return true
+endfun
+
+# array_equal without compare function
+fun string_array_equal a b
+  if len a != len b; return false; endif
+  for let i 0; i < len a; i++
+    if a[i] != b[i]; return false; endif
+  endfor
+  return true
+endfun
+
+# BEGIN Attributes (Settings)
+define ATTR dict 16
+define MAN_ATTR "
+para_type    [single/double] paragraph spacing  (Default: single)\n
+ignore_empty [true/false]    ignore empty lines (Default: false)\n
+autocorrect  [true/false]    auto correct       (Default: false)\n
+wordwrap     [true/false]    custom word wrap   (Default: true)\n
+wraplen      [int]           word wrap length   (Default: 100)\n"
+
+fun default_settings
+  let ATTR["para_type"]    "single"
+  let ATTR["ignore_empty"] "false"
+  let ATTR["autocorrect"]  "false"
+  let ATTR["wordwrap"]     "true"
+  let ATTR["wraplen"]      100
+endfun
+
+fun response_settings
+  let ATTR["para_type"]    "double"
+  let ATTR["ignore_empty"] "true"
+  let ATTR["autocorrect"]  "true"
+  let ATTR["wordwrap"]     "true"
+  let ATTR["wraplen"]      100
+endfun
+
+fun get_bool_attr s
+  assertnot (catch ATTR[s]) ("No such attribute: " + s)
+  let s ATTR[s]
+  if s = "true"; return true
+  else return false; endif
+endfun
+
+fun get_str_attr s
+  assertnot (catch ATTR[s]) ("No such attribute: " + s)
+  return tostr ATTR[s]
+endfun
+
+fun get_int_attr s
+  assertnot (catch ATTR[s]) ("No such attribute: " + s)
+  return toint ATTR[s]
+endfun
+
+fun get_para_type
+  let para_type get_str_attr "para_type"
+  if para_type = "double"; return "\n\n"; endif
+  return "\n"
+endfun
+# END Attributes
+
+# BEGIN I/O
+fun is_stream s
+  return s = stdout || s = stdin || s = stderr
+endfun
+
+fun open_safe s
+  let f openin s
+  assertnot (catch f) "open_safe: file could not be opened"
+  return f
+endfun
+
+fun file_to_array s
+  if is_stream s && s != stdin; return arr 0; endif
+  let f open_safe s
+  let d dict 64
+  let i 0
+  while !(catch (let s read str f))
+    let b get_bool_attr "ignore_empty"
+    if !b || len s > 0
+      let d[i++] s
+    endif
+  endwhile
+  close f
+  return array_copy d
+endfun
+
+fun user_open_file s
+  let f openin s
+  if catch f
+    fprintln stderr "Could not open file!"
+    return tuple_create false (array_create 1 "")
+  endif
+  close f
+  return tuple_create true (file_to_array s)
+endfun
+
+fun yesno s
+  print s + " [y/N] "
+  let s scan str
+  if len s = 1 && (s[0] = 'y' || s[0] = 'Y'); return true; endif
+  return false
+endfun
+
+fun exit_confirm curr_file buffer
+  if array_empty buffer; return true; endif
+  let a file_to_array curr_file
+  if string_array_equal a buffer; return true; endif
+  return yesno "Are you sure? (There are unsaved changes!)"
+endfun
+
+fun overwrite_confirm curr_file buffer
+  if is_stream curr_file || !(exists curr_file)
+    return true
+  endif
+  let a file_to_array curr_file
+  if string_array_equal a buffer; return true; endif
+  return yesno "Are you sure? (File already exists!)"
+endfun
+# END I/O
+
+# BEGIN String Manipulation
+
+# BEGIN Cursor Movement
+fun cursor_back_char pos
+  return max (pos - 1) 0
+endfun
+
+fun cursor_back_char_repeat pos times
+  for ; times > 0; times--
+    let pos cursor_back_char pos
+  endfor
+  return pos
+endfun
+
+fun cursor_forw_char buffer pos
+  return min (pos + 1) (len buffer)
+endfun
+
+fun cursor_forw_char_repeat buffer pos times
+  for ; times > 0; times--
+    let pos cursor_forw_char buffer pos
+  endfor
+  return pos
+endfun
+
+fun cursor_back_word buffer pos
+  if pos <= len buffer
+    let pos cursor_back_char pos
+    let pos cursor_back_char pos
+    while 0 < pos && buffer[pos] != ' '
+      pos--
+    endwhile
+    if pos != 0; let pos cursor_forw_char buffer pos; endif
+    return pos
+  else
+    return len buffer
+  endif
+endfun
+
+fun cursor_back_word_repeat buffer pos times
+  for ; times > 0; times--
+    let pos cursor_back_word buffer pos
+  endfor
+  return pos
+endfun
+
+fun cursor_forw_word buffer pos
+  if 0 <= pos
+    while pos < len buffer && buffer[pos] != ' '
+      pos++
+    endwhile
+    return cursor_forw_char buffer pos
+  else
+    return 0
+  endif
+endfun
+
+fun cursor_forw_word_repeat buffer pos times
+  for ; times > 0; times--
+    let pos cursor_forw_word buffer pos
+  endfor
+  return pos
+endfun
+
+fun cursor_set_word buffer word_pos
+  return cursor_forw_word_repeat buffer 0 word_pos
+endfun
+
+fun find_next buffer pos word
+  if len word > 0
+    let occs kmp buffer word
+    print "Matches for \"" + word + "\" found at: "; array_println occs
+    for let i 0; i < len occs; i++
+      if pos < occs[i]; return occs[i]; endif
+    endfor
+  endif
+  return (-1)
+endfun
+
+fun find_next_no_case buffer pos word
+  let buffer to_lower buffer
+  let word   to_lower word
+  return find_next buffer pos word
+endfun
+
+fun find_prev buffer pos word
+  if len word > 0
+    let occs kmp buffer word
+    print "Matches for \"" + word + "\" found at: "; array_println occs
+    for let i len occs - 1; i >= 0; i--
+      if occs[i] < pos; return occs[i]; endif
+    endfor
+  endif
+  return (-1)
+endfun
+
+fun find_prev_no_case buffer pos word
+  let buffer to_lower buffer
+  let word   to_lower word
+  return find_prev buffer pos word
+endfun
+# END Cursor Movement
+
+# BEGIN Formatting
+fun word_wrap buffer
+  if !(get_bool_attr "wordwrap"); return buffer; endif
+  let wraplen get_int_attr "wraplen"
+  let out     ""
+  let old_pos 0
+  while old_pos < len buffer
+    for let new_pos old_pos
+        new_pos < len buffer && new_pos - old_pos < wraplen
+        let new_pos cursor_forw_word buffer new_pos
+    endfor
+    if   new_pos - old_pos > wraplen
+      let new_pos cursor_back_word buffer new_pos
+    endif
+    if new_pos = old_pos
+      let new_pos cursor_forw_word buffer new_pos
+    endif
+    let s       string_sub buffer old_pos new_pos
+    let old_pos new_pos
+    if old_pos < len buffer
+      let out   out + s + "\n"
+    else
+      let out   out + s
+    endif
+  endwhile
+  return out
+endfun
+
+fun one_line buffer
+  if !(get_bool_attr "wordwrap"); return buffer; endif
+  let wraplen get_int_attr "wraplen"
+  if len buffer <= wraplen
+    return buffer
+  else
+    let buffer string_sub buffer 0 (wraplen - 2)
+    return buffer + "..."
+  endif
+endfun
+
+fun ruler l
+  let out "|\n"
+  for l--; l >= 0; l--
+    if  l % 10 = 0; let out (0 + out)
+    elif l % 5 = 0; let out (5 + out)
+    else let out ("-" + out); endif
+  endfor
+  return out
+endfun
+
+fun annot_chars buffer
+  let out ""
+  for let pos 0; pos < len buffer; pos++
+    let out (out + "[" + pos + "]" + buffer[pos] + " ")
+  endfor
+  return out
+endfun
+
+fun get_char buffer pos
+  assert (0 <= pos && pos < len buffer) ("get_char: " + pos + "/" + len buffer)
+  return buffer[pos]
+endfun
+
+fun get_word buffer pos
+  let new_pos cursor_forw_word buffer pos
+  return string_sub buffer pos new_pos
+endfun
+
+fun annot_words buffer
+  let out      ""
+  let word_cnt 0
+  for let pos 0
+      pos < len buffer
+      let pos cursor_forw_word buffer pos
+    let word get_word buffer pos
+    let out  out + "[" + word_cnt++ + "]" + word
+  endfor
+  return out
+endfun
+
+fun list_buffer buffer
+  let out ""
+  if 0 < len buffer
+    let line_no_len len (tostr (len buffer))
+    for let i 0; i < len buffer; i++
+      let line_no   string_format_prepend (tostr i) " " line_no_len
+      let line_no   "[" + line_no + "] "
+      let curr_line line_no + buffer[i]
+      let out       out + one_line curr_line + "\n"
+    endfor
+  endif
+  return out
+endfun
+
+fun format_output buffer inbuffer
+  let para_type get_para_type()
+  let b         get_bool_attr "ignore_empty"
+  let out       ""
+  for let i 0; i < len buffer; i++
+    if 0 < len inbuffer[i]
+      let out out + word_wrap inbuffer[i]
+      let out out + para_type
+    endif
+    if !b || 0 < len buffer[i]
+      let out out + word_wrap buffer[i]
+      let out out + para_type
+    endif
+  endfor
+  return out
+endfun
+
+fun write_output buffer
+  let para_type get_para_type()
+  let b         get_bool_attr "ignore_empty"
+  let out       ""
+  for let i 0; i < len buffer; i++
+    if !b || 0 < len buffer[i]
+      let out out + buffer[i]
+      let out out + para_type
+    endif
+  endfor
+  return out
+endfun
+
+fun get_position buffer line_pos curs_pos
+  return "L: " + line_pos + " C: " + curs_pos + " (word: " + get_word buffer[line_pos] curs_pos + ")"
+endfun
+# END Formatting
+
+fun delete_char buffer pos
+  if 0 <= pos && pos < len buffer
+    return string_inv_sub buffer pos (pos + 1)
+  else
+    return buffer
+  endif
+endfun
+
+fun delete_char_repeat buffer pos times
+  for ; times > 0; times--
+    let buffer delete_char buffer pos
+  endfor
+  return buffer
+endfun
+
+fun delete_word buffer pos
+  if 0 <= pos && pos < len buffer
+    let word_pos cursor_forw_word buffer pos
+    return string_inv_sub buffer pos word_pos
+  else
+    return buffer
+  endif
+endfun
+
+fun delete_word_repeat buffer pos times
+  for ; times > 0; times--
+    let buffer delete_word buffer pos
+  endfor
+  return buffer
+endfun
+
+# BEGIN Auto Correct
+define DICT dict 32
+
+# Read auto correct rules from file
+fun read_rules s
+  let a snd user_open_file s
+  for let i 0; i < len a; i++
+    let c string_split a[i] ','
+    if len c > 1
+      let DICT[c[0]] c[1]
+    endif
+  endfor
+endfun
+
+# Save auto correct rules to file
+fun save_rules s
+  let b true
+  if exists s
+    let b yesno "Are you sure? (File already exists!)"
+  endif
+  if b
+    let f openout s
+    if catch f
+      fprintln "Could not open file!"
+      return 1
+    endif
+    let k keys DICT
+    for let i 0; i < len k; i++
+      write (k[i] + "," + DICT[k[i]] + NEWLINE) f
+    endfor
+    close f
+  endif
+  return 0
+endfun
+
+fun auto_correct word
+  if !(get_bool_attr "autocorrect"); return word; endif
+  let k keys DICT
+  for let i 0; i < len k; i++
+    let word string_replace_word word k[i] DICT[k[i]]
+  endfor
+  return word
+endfun
+# END Auto Correct
+
+fun insert_word buffer pos word
+  let word   auto_correct word
+  let buffer string_insert_word buffer pos word
+  let pos    cursor_forw_char_repeat buffer pos (len word)
+  return tuple_create buffer pos
+endfun
+# END String Manipulation
+
+# BEGIN Line Manipulation
+
+# BEGIN Line Movement
+fun line_back_single pos
+  return max (pos - 1) 0
+endfun
+
+fun line_back_repeat pos times
+  for ; times > 0; times--
+    let pos line_back_single pos
+  endfor
+  return pos
+endfun
+
+fun line_forw_single buffer pos
+  return min (pos + 1) (len buffer)
+endfun
+
+fun line_forw_repeat buffer pos times
+  for ; times > 0; times--
+    let pos line_forw_single buffer pos
+  endfor
+  return pos
+endfun
+# END Line Movement
+
+fun clear_line buffer pos
+  if 0 <= pos && pos < len buffer
+    let buffer[pos] ""
+  endif
+  return buffer
+endfun
+
+fun delete_line buffer pos
+  if len buffer > 1
+    if 0 <= pos && pos < len buffer
+      return array_inv_sub buffer pos (pos + 1)
+    endif
+  else
+    return clear_line buffer pos
+  endif
+endfun
+
+fun delete_line_repeat buffer pos times
+  if 0 <= pos && pos < len buffer
+    let times min (len buffer) (pos + times)
+    let buffer array_inv_sub buffer pos times
+    if len buffer = 0
+      return array_create 1 ""
+    else
+      return buffer
+    endif
+  endif
+  return buffer
+endfun
+
+fun line_insert buffer pos
+  if 0 <= pos && pos <= len buffer
+    let new_line array_create 1 ""
+    let buffer   array_insert buffer pos new_line
+  endif
+  return buffer
+endfun
+
+fun line_insert_repeat buffer pos times
+  if 0 <= pos && pos <= len buffer
+    let new_lines array_create times ""
+    let buffer    array_insert buffer pos new_lines
+  endif
+  return buffer
+endfun
+
+fun line_append buffer
+  let new_line array_create 1 ""
+  return array_concat buffer new_line
+endfun
+
+fun line_get_chars buffer pos
+  if 0 <= pos && pos < len buffer
+    return buffer[pos]
+  endif
+  fprintln stderr ("line_get_chars: Attempted to go out of bounds: " + pos + "/" + len buffer)
+  return ""
+endfun
+# END Line Manipulation
+
+# BEGIN Main Program
+define MAN_COM "
+q                Quit\n
+q!               Force quit\n
+o                Open file\n
+oi               Open input file\n
+l                List lines\n
+li               List input lines\n
+ru               Print ruler\n
+S          [int] Select line\n
+G                Get current line\n
+B                Move back one line\n
+N                Move forward one line\n
+s/sw       [int] Set cursor to char/word\n
+g                Get current cursor position\n
+b                Move cursor back one char\n
+bw               Move cursor back one word\n
+n                Move cursor forward one char\n
+nw               Move cursor forward one word\n
+fn         [str] Move cursor to next occurrence of [str]\n
+fb         [str] Move cursor to previous occurrence of [str]\n
+fnc/fbc    [str] Analogous but case sensitive\n
+p                Print out current line\n
+P                Print out current buffer\n
+ac               Annotate chars in line\n
+aw               Annotate words in line\n
+i          [str] Insert at cursor position\n
+a          [str] Append at end of line\n
++          [int] Add content of line [int] to cursor position\n
+d+         [int] Replace current line with line [int]\n
+I                Insert new line at current line\n
+E                Move to last line\n
+e                Move to last char at cursor position\n
+x          [int] Delete [int] chars at cursor position\n
+bx         [int] Backspace\n
+r          [str] Replace char at cursor position\n
+dw         [int] Delete [int] words at cursor position\n
+rw         [str] Replace word at cursor position\n
+dt        [char] Delete until char is reached\n
+w          [str] Write to output file\n
+wq         [str] Write to output file and quit\n
+add  [str] [str] Add autocorrect rule\n
+rem        [str] Remove autocorrect rule\n
+clr              Remove all autocorrect rules\n
+read       [str] Add autocorrect rules from file\n
+save       [str] Save autocorrect rules to file\n
+get        [str] Get attribute\n
+set  [str] [str] Set attribute\n
+Type 'attr' for attributes listing\n"
+
+let loop      !DEBUG # Loop condition
+let curr_file stdout # Write to stdout by default
+let curr_word " "    # Current word to look for
+let line_pos  0      # Line position
+let curs_pos  0      # Cursor position
+default_settings()   # Set attributes
+
+# Setting up buffer
+if len args > 1
+  let t user_open_file args[1]
+  let buffer    snd t
+  let curr_file args[1]
+else
+  let buffer array_create 1 ""
+endif
+let inbuffer array_create (len buffer) ""
+
+# Main loop
+while loop
+  let s scan str
+  let c string_split s ' '
+  if len c = 0
+    fprintln stderr "Type 'help' for command listing"
+    continue
+  endif
+  let com c[0]
+
+  if com = "q" # Quit
+    if exit_confirm curr_file buffer; return 0; endif
+  elif com = "q!"; return 0 # Force quit
+  elif com = "o" && len c > 1 # Open file
+    if exit_confirm curr_file buffer
+      let filename string_sub s (cursor_forw_word s 0) (len s)
+      let t user_open_file filename
+      if fst t
+        let buffer    snd t
+        let inbuffer  array_expand_back inbuffer (len buffer)
+        let inbuffer  array_sub inbuffer 0 (len buffer)
+        let curr_file filename
+        let curs_pos  0
+        let line_pos  0
+      endif
+    endif
+  elif com = "oi" && len c > 1 # Open file to input buffer
+    if exit_confirm curr_file buffer
+      let filename string_sub s (cursor_forw_word s 0) (len s)
+      let t user_open_file filename
+      if fst t
+        let inbuffer  snd t
+        let buffer    array_create (len inbuffer) ""
+        let curs_pos  0
+        let line_pos  0
+      endif
+    endif
+  elif com = "l" # List lines
+    print list_buffer buffer
+  elif com = "li" # List input buffer
+    print list_buffer inbuffer
+  elif com = "ru" # Print ruler
+    let wraplen get_int_attr "wraplen"
+    print ruler (wraplen + 5)
+  elif com = "S" && len c > 1 # Set line
+    if !(catch (let pos toint c[1]))
+      let line_pos line_forw_repeat buffer 0 pos
+      let curs_pos 0
+      if line_pos = len buffer
+        let buffer   line_append buffer
+        let inbuffer line_append inbuffer
+      endif
+    else
+      fprintln stderr "Invalid line position!"
+    endif
+    println get_position buffer line_pos curs_pos
+  elif com = "G" # Get current line
+    println "L: " + line_pos
+  elif com = "B" # Move back one line
+    if len c > 1 && !(catch (let times toint c[1]))
+      let line_pos line_back_repeat line_pos times
+      let curs_pos 0
+    else
+      let line_pos line_back_single line_pos
+      let curs_pos 0
+    endif
+    println get_position buffer line_pos curs_pos
+  elif com = "N" # Move forward one line
+    if len c > 1 && !(catch (let times toint c[1]))
+      let line_pos line_forw_repeat buffer line_pos times
+      let curs_pos 0
+    else
+      let line_pos line_forw_single buffer line_pos
+      let curs_pos 0
+    endif
+    if line_pos = len buffer
+      let buffer   line_append buffer
+      let inbuffer line_append inbuffer
+    endif
+    println get_position buffer line_pos curs_pos
+  elif com = "s" && len c > 1 # Set cursor
+    if !(catch (let pos toint c[1]))
+      let curs_pos cursor_forw_char_repeat buffer[line_pos] 0 pos
+    else
+      fprintln stderr "Invalid cursor position!"
+    endif
+    println get_position buffer line_pos curs_pos
+  elif com = "sw" && len c > 1 # Set cursor to word
+    if !(catch (let pos toint c[1]))
+      let curs_pos cursor_forw_word_repeat buffer[line_pos] 0 pos
+    else
+      fprintln stderr "Invalid cursor position!"
+    endif
+    println get_position buffer line_pos curs_pos
+  elif com = "g" # Get current cursor position
+    let curr_line buffer[line_pos]
+    println "C: " + curs_pos + " (word: " + get_word curr_line curs_pos + ")"
+  elif com = "b" # Move cursor backward
+    if len c > 1 && !(catch (let times toint c[1]))
+      let curs_pos cursor_back_char_repeat curs_pos times
+    else
+      let curs_pos cursor_back_char curs_pos
+    endif
+    println get_position buffer line_pos curs_pos
+  elif com = "bw" # Move cursor back one word
+    if len c > 1 && !(catch (let times toint c[1]))
+      let curs_pos cursor_back_word_repeat buffer[line_pos] curs_pos times
+    else
+      let curs_pos cursor_back_word buffer[line_pos] curs_pos
+    endif
+    println get_position buffer line_pos curs_pos
+  elif com = "n" # Move cursor forward
+    if len c > 1 && !(catch (let times toint c[1]))
+      let curs_pos cursor_forw_char_repeat buffer[line_pos] curs_pos times
+    else
+      let curs_pos cursor_forw_char buffer[line_pos] curs_pos
+    endif
+    println get_position buffer line_pos curs_pos
+  elif com = "nw" # Move cursor forward one word
+    if len c > 1 && !(catch (let times toint c[1]))
+      let curs_pos cursor_forw_word_repeat buffer[line_pos] curs_pos times
+    else
+      let curs_pos cursor_forw_word buffer[line_pos] curs_pos
+    endif
+    println get_position buffer line_pos curs_pos
+  elif com = "p" # Print current line
+    let para_type get_para_type()
+    if len inbuffer[line_pos] > 0
+      print word_wrap inbuffer[line_pos] + para_type
+    endif
+    print word_wrap buffer[line_pos] + para_type
+    println get_position buffer line_pos curs_pos
+  elif com = "P" # Print all lines
+    print format_output buffer inbuffer
+    println get_position buffer line_pos curs_pos
+  elif com = "ac" # Annotate chars
+    println word_wrap annot_chars buffer[line_pos]
+  elif com = "aw" # Annotate words
+    println word_wrap annot_words buffer[line_pos]
+  elif com = "i" && len c > 1 # Insert at current cursor position
+    let word             string_sub s (cursor_forw_word s 0) (len s)
+    let t                insert_word buffer[line_pos] curs_pos word
+    let buffer[line_pos] fst t
+    let curs_pos         snd t
+    println get_position buffer line_pos curs_pos
+  elif com = "a" && len c > 1 # Append at end of line
+    let word             string_sub s (cursor_forw_word s 0) (len s)
+    let word             auto_correct word
+    let buffer[line_pos] buffer[line_pos] + word
+    let curs_pos         len buffer[line_pos]
+    println get_position buffer line_pos curs_pos
+  elif com = "I" # Insert line
+    if len c > 1 && !(catch (let times toint c[1]))
+      let buffer   line_insert_repeat buffer line_pos times
+      let curs_pos 0
+    else
+      let buffer   line_insert buffer line_pos
+      let curs_pos 0
+    endif
+    println get_position buffer line_pos curs_pos
+  elif com = "E" # Move to last line
+    let line_pos max (len buffer - 1) 0
+    println get_position buffer line_pos curs_pos
+  elif com = "e" # Move to last char
+    let curs_pos max (len buffer[line_pos] - 1) 0
+    println get_position buffer line_pos curs_pos
+  elif com = "x" # Delete char at cursor position
+    if len c > 1 && !(catch (let times toint c[1]))
+      let buffer[line_pos] delete_char_repeat buffer[line_pos] curs_pos times
+    else
+      let buffer[line_pos] delete_char buffer[line_pos] curs_pos
+    endif
+    println get_position buffer line_pos curs_pos
+  elif com = "bx" # Backspace
+    if len c > 1 && !(catch (let times toint c[1]))
+      for ; times > 0; times--
+        let curs_pos cursor_back_char curs_pos
+        let buffer[line_pos] delete_char buffer[line_pos] curs_pos
+      endfor
+    else
+      let curs_pos cursor_back_char curs_pos
+      let buffer[line_pos] delete_char buffer[line_pos] curs_pos
+    endif
+    println get_position buffer line_pos curs_pos
+  elif com = "r" && len c > 1 # Replace char at cursor position
+    let word             string_sub s (cursor_forw_word s 0) (len s)
+    let buffer[line_pos] delete_char buffer[line_pos] curs_pos
+    let buffer[line_pos] fst insert_word buffer[line_pos] curs_pos word
+    println get_position buffer line_pos curs_pos
+  elif com = "dw" # Delete word
+    if len c > 1 && !(catch (let times toint c[1]))
+      let buffer[line_pos] delete_word_repeat buffer[line_pos] curs_pos times
+    else
+      let buffer[line_pos] delete_word buffer[line_pos] curs_pos
+    endif
+    println get_position buffer line_pos curs_pos
+  elif com = "rw" && len c > 1 # Replace word at cursor position
+    let word             string_sub s (cursor_forw_word s 0) (len s)
+    let buffer[line_pos] delete_word buffer[line_pos] curs_pos
+    let t                insert_word buffer[line_pos] curs_pos word
+    let buffer[line_pos] fst t
+    let curs_pos         snd t
+    println get_position buffer line_pos curs_pos
+  elif com = "d" # Clear current line
+    if len c > 1 && !(catch (let times toint c[1]))
+      let times min (len buffer) times
+      for let i line_pos; i < times; i++
+        let buffer[line_pos] ""
+      endfor
+    else
+      let buffer[line_pos] ""
+    endif
+    let curs_pos 0
+    println get_position buffer line_pos curs_pos
+  elif com = "dt" && len c > 1 # Delete until char is reached
+    let term string_sub s (cursor_forw_word s 0) (len s)
+    let term auto_correct term
+    if len term = 1
+      let curr_line buffer[line_pos]
+      let term      term[0]
+      for let i curs_pos
+          i < len curr_line && curr_line[i] != term
+          i++        
+      endfor
+      if 0 < i && i < len curr_line
+        let buffer[line_pos] string_inv_sub curr_line curs_pos i
+      endif
+    endif
+  elif com = "dd" # Delete current line
+    if len c > 1 && !(catch (let times toint c[1]))
+      let buffer   delete_line_repeat buffer line_pos times
+      let inbuffer delete_line_repeat inbuffer line_pos times
+      let line_pos line_back_single line_pos
+    else
+      let buffer   delete_line buffer line_pos
+      let inbuffer delete_line inbuffer line_pos
+      let line_pos line_back_single line_pos
+    endif
+    println get_position buffer line_pos curs_pos
+  elif com = "fn" || com = "fnc" # Find next occurrence
+    if len c > 1
+      let term string_sub s (cursor_forw_word s 0) (len s)
+      let term auto_correct term
+      if len term = 0
+        fprintln stderr "Search term must be non-empty!"
+        continue
+      endif
+      let curr_word
+    endif
+    if com = "fnc"
+      let pos find_next buffer[line_pos] curs_pos curr_word
+    else
+      let pos find_next_no_case buffer[line_pos] curs_pos curr_word
+    endif
+    if pos < 0
+      fprintln stderr "No matches found after cursor!"
+    else
+      let curs_pos pos
+    endif
+    println get_position buffer line_pos curs_pos
+  elif com = "fb" || com = "fbc" # Find prev occurrence
+    if len c > 1
+      let term string_sub s (cursor_forw_word s 0) (len s)
+      let term auto_correct term
+      if len term = 0
+        fprintln stderr "Search term must be non-empty!"
+        continue
+      endif
+      let curr_word term
+    endif
+    if com = "fbc"
+      let pos find_prev buffer[line_pos] curs_pos curr_word
+    else
+      let pos find_prev_no_case buffer[line_pos] curs_pos curr_word
+    endif
+    if pos < 0
+      fprintln stderr "No matches found before cursor!"
+    else
+      let curs_pos pos
+    endif
+    println get_position buffer line_pos curs_pos
+  elif com = "+" && len c > 1 # Insert line at cursor position
+    if !(catch (let line toint c[1]))
+      if 0 <= line && line < len buffer
+        let word             buffer[line]
+        let t                insert_word buffer[line_pos] curs_pos word
+        let buffer[line_pos] fst t
+        let curs_pos         snd t
+      else
+        fprintln stderr "Not a valid line number!"
+      endif
+    endif
+    println get_position buffer line_pos curs_pos
+  elif com = "d+" && len c > 1 # Replace current line with line c[1]
+    if !(catch (let line toint c[1]))
+      if 0 <= line && line < len buffer
+        let buffer[line_pos] auto_correct buffer[line]
+        let curs_pos         len buffer[line_pos]
+      else
+        fprintln stderr "Not a valid line number!"
+      endif
+    endif
+    println get_position buffer line_pos curs_pos
+  elif com = "w" || com = "wq" # Write to output file (and quit)
+    if len c > 1
+      let filename string_sub s (cursor_forw_word s 0) (len s)
+      if overwrite_confirm filename buffer
+        let f openout filename
+        if catch f
+          fprintln stderr "Could not write to file!"
+          continue
+        endif
+        write (write_output buffer) f
+        close f
+        if com = "wq"; return 0; endif
+        let curr_file filename
+      endif
+    else
+      if overwrite_confirm curr_file buffer
+        let f openout curr_file
+        if catch f
+          fprintln stderr "Could not write to file!"
+          continue
+        endif
+        write (write_output buffer) f
+        close f
+        if com = "wq"; return 0; endif
+      endif
+    endif
+  elif com = "set" && len c > 2 # set attribute
+    let attr c[1]
+    if catch ATTR[attr]
+      fprintln stderr "No such attribute!"
+      continue
+    endif
+    let ATTR[attr] c[2]
+  elif com = "get" && len c > 1 # get attribute
+    let attr c[1]
+    if catch ATTR[attr]
+      fprintln stderr "No such attribute!"
+      continue
+    endif
+    println attr + " = " + ATTR[attr]
+  elif com = "add" && len c > 2
+    let DICT[c[1]] c[2]
+  elif com = "rem" && len c > 1
+    if !(catch DICT[c[1]])
+      free DICT[c[1]]
+    endif
+  elif com = "clr" # Clear autocomplete rules
+    dict_clear DICT
+  elif com = "read" && len c > 1
+    let filename string_sub s (cursor_forw_word s 0) (len s)
+    read_rules filename
+  elif com = "save" && len c > 1
+    let filename string_sub s (cursor_forw_word s 0) (len s)
+    save_rules filename
+  elif com = "default" # set ATTR to default
+    default_settings()
+  elif com = "resp" # set ATTR to response mode
+    response_settings()
+  elif com = "help" # Print help file
+    print MAN_COM
+  elif com = "attr" # Print attributes
+    print MAN_ATTR
+  else
+    fprintln stderr "Invalid command! Type 'help' for command listing."
+  endif
+endwhile
+# END Main Program
+
+# BEGIN Debug Tests
+if DEBUG
+  fprintln stderr "Debug Mode!"
+  # Commands here
+  return 0
+endif
+# END Debug Tests
