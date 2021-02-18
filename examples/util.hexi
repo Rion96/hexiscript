@@ -176,7 +176,7 @@ endfun
 
 fun string_replace_word s w new_w
   let occ kmp s w
-  for let i 0; i < len occ; i++
+  for let i len occ - 1; i >= 0; i--
     let l string_sub s 0 occ[i]
     let r string_sub s (occ[i] + len w) (len s)
     let s l + new_w + r

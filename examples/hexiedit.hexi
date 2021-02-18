@@ -1,3 +1,5 @@
+#!/bin/env hexi
+
 # hexiedit
 # A simple text editor written in hexiscript
 include "util.hexi"
@@ -96,6 +98,7 @@ define MAN_ATTR "
 para_type    [single/double] paragraph spacing  (Default: single)\n
 ignore_empty [true/false]    ignore empty lines (Default: false)\n
 autocorrect  [true/false]    auto correct       (Default: false)\n
+inbuffer     [true/false]    show input buffer  (Default: false)\n
 wordwrap     [true/false]    custom word wrap   (Default: true)\n
 wraplen      [int]           word wrap length   (Default: 100)\n"
 
@@ -103,6 +106,7 @@ fun default_settings
   let ATTR["para_type"]    "single"
   let ATTR["ignore_empty"] "false"
   let ATTR["autocorrect"]  "false"
+  let ATTR["inbuffer"]     "false"
   let ATTR["wordwrap"]     "true"
   let ATTR["wraplen"]      100
 endfun
@@ -111,6 +115,7 @@ fun response_settings
   let ATTR["para_type"]    "double"
   let ATTR["ignore_empty"] "true"
   let ATTR["autocorrect"]  "true"
+  let ATTR["inbuffer"]     "true"
   let ATTR["wordwrap"]     "true"
   let ATTR["wraplen"]      100
 endfun
@@ -182,10 +187,9 @@ fun yesno s
   return false
 endfun
 
-fun exit_confirm curr_file buffer
-  if array_empty buffer; return true; endif
-  let a file_to_array curr_file
-  if string_array_equal a buffer; return true; endif
+fun exit_confirm curr_file buffer file_buff
+  # if array_empty buffer; return true; endif
+  if string_array_equal file_buff buffer; return true; endif
   return yesno "Are you sure? (There are unsaved changes!)"
 endfun
 
@@ -313,7 +317,7 @@ fun word_wrap buffer
         new_pos < len buffer && new_pos - old_pos < wraplen
         let new_pos cursor_forw_word buffer new_pos
     endfor
-    if   new_pos - old_pos > wraplen
+    if new_pos - old_pos > wraplen
       let new_pos cursor_back_word buffer new_pos
     endif
     if new_pos = old_pos
@@ -381,11 +385,17 @@ fun annot_words buffer
   return out
 endfun
 
-fun list_buffer buffer
+fun push_in_range i from to
+  return max (min i to) from
+endfun
+
+fun list_buffer buffer from to
   let out ""
   if 0 < len buffer
-    let line_no_len len (tostr (len buffer))
-    for let i 0; i < len buffer; i++
+    let from        max 0 from
+    let to          push_in_range to 0 (len buffer - 1)
+    let line_no_len len (tostr to)
+    for let i from; i <= to; i++
       let line_no   string_format_prepend (tostr i) " " line_no_len
       let line_no   "[" + line_no + "] "
       let curr_line line_no + buffer[i]
@@ -395,31 +405,42 @@ fun list_buffer buffer
   return out
 endfun
 
-fun format_output buffer inbuffer
-  let para_type get_para_type()
-  let b         get_bool_attr "ignore_empty"
-  let out       ""
-  for let i 0; i < len buffer; i++
-    if 0 < len inbuffer[i]
+fun format_output buffer inbuffer from to
+  let para_type  get_para_type()
+  let show_inbf  get_bool_attr "inbuffer"
+  let show_empty !(get_bool_attr "ignore_empty")
+  let out        ""
+  let from       max 0 from
+  let to         push_in_range to 0 (len buffer - 1)
+  for let i from; i <= to; i++
+    if show_inbf && 0 < len inbuffer[i]
       let out out + word_wrap inbuffer[i]
       let out out + para_type
     endif
-    if !b || 0 < len buffer[i]
+    if show_empty || 0 < len buffer[i]
       let out out + word_wrap buffer[i]
-      let out out + para_type
+      if i != len buffer - 1
+        let out out + para_type
+      else
+        let out out + "\n"
+      endif
     endif
   endfor
   return out
 endfun
 
 fun write_output buffer
-  let para_type get_para_type()
-  let b         get_bool_attr "ignore_empty"
-  let out       ""
+  let show_empty !(get_bool_attr "ignore_empty")
+  let para_type  get_para_type()
+  let out        ""
   for let i 0; i < len buffer; i++
-    if !b || 0 < len buffer[i]
+    if show_empty || 0 < len buffer[i]
       let out out + buffer[i]
-      let out out + para_type
+      if i != len buffer - 1
+        let out out + para_type
+      else
+        let out out + NEWLINE
+      endif
     endif
   endfor
   return out
@@ -607,6 +628,8 @@ q!               Force quit\n
 o                Open file\n
 oi               Open input file\n
 l                List lines\n
+           [int] List [int] lines offset from line position\n
+     [int] [int] List lines from line [int] to line [int]\n
 li               List input lines\n
 ru               Print ruler\n
 S          [int] Select line\n
@@ -624,12 +647,17 @@ fb         [str] Move cursor to previous occurrence of [str]\n
 fnc/fbc    [str] Analogous but case sensitive\n
 p                Print out current line\n
 P                Print out current buffer\n
+           [int] Print [int] lines offset from line position\n
+     [int] [int] Print out from line [int] to line [int]\n
 ac               Annotate chars in line\n
 aw               Annotate words in line\n
 i          [str] Insert at cursor position\n
 a          [str] Append at end of line\n
 +          [int] Add content of line [int] to cursor position\n
 d+         [int] Replace current line with line [int]\n
+!          [str] Run bash command\n
+cd         [str] Change directory\n
+ls         [str] List files in directory\n
 I                Insert new line at current line\n
 E                Move to last line\n
 e                Move to last char at cursor position\n
@@ -659,17 +687,22 @@ default_settings()   # Set attributes
 
 # Setting up buffer
 if len args > 1
-  let t user_open_file args[1]
-  let buffer    snd t
+  let buffer    snd user_open_file args[1]
+  let file_buff array_copy buffer
   let curr_file args[1]
 else
-  let buffer array_create 1 ""
+  let buffer    array_create 1 ""
+  let file_buff array_create 1 ""
 endif
-let inbuffer array_create (len buffer) ""
+let inbuffer array_copy buffer
 
 # Main loop
 while loop
   let s scan str
+  if catch s
+    fprintln stderr "Type 'help' for command listing"
+    continue
+  endif
   let c string_split s ' '
   if len c = 0
     fprintln stderr "Type 'help' for command listing"
@@ -678,14 +711,15 @@ while loop
   let com c[0]
 
   if com = "q" # Quit
-    if exit_confirm curr_file buffer; return 0; endif
+    if exit_confirm curr_file buffer file_buff; return 0; endif
   elif com = "q!"; return 0 # Force quit
   elif com = "o" && len c > 1 # Open file
-    if exit_confirm curr_file buffer
+    if exit_confirm curr_file buffer file_buff
       let filename string_sub s (cursor_forw_word s 0) (len s)
       let t user_open_file filename
       if fst t
         let buffer    snd t
+        let file_buff array_copy buffer
         let inbuffer  array_expand_back inbuffer (len buffer)
         let inbuffer  array_sub inbuffer 0 (len buffer)
         let curr_file filename
@@ -694,7 +728,7 @@ while loop
       endif
     endif
   elif com = "oi" && len c > 1 # Open file to input buffer
-    if exit_confirm curr_file buffer
+    if exit_confirm curr_file buffer file_buff
       let filename string_sub s (cursor_forw_word s 0) (len s)
       let t user_open_file filename
       if fst t
@@ -705,9 +739,21 @@ while loop
       endif
     endif
   elif com = "l" # List lines
-    print list_buffer buffer
+    if len c > 2 && !(catch (let from toint c[1])) && !(catch (let to toint c[2]))
+      print list_buffer buffer from to
+    elif len c > 1 && !(catch (let offset toint c[1]))
+      print list_buffer buffer (line_pos - offset) (line_pos + offset)
+    else
+      print list_buffer buffer 0 (len inbuffer)
+    endif
   elif com = "li" # List input buffer
-    print list_buffer inbuffer
+    if len c > 2 && !(catch (let from toint c[1])) && !(catch (let to toint c[2]))
+      print list_buffer inbuffer from to
+    elif len c > 1 && !(catch (let offset toint c[1]))
+      print list_buffer inbuffer (line_pos - offset) (line_pos + offset)
+    else
+      print list_buffer inbuffer 0 (len inbuffer)
+    endif
   elif com = "ru" # Print ruler
     let wraplen get_int_attr "wraplen"
     print ruler (wraplen + 5)
@@ -794,13 +840,20 @@ while loop
     println get_position buffer line_pos curs_pos
   elif com = "p" # Print current line
     let para_type get_para_type()
-    if len inbuffer[line_pos] > 0
+    let show_inbf get_bool_attr "inbuffer"
+    if show_inbf && len inbuffer[line_pos] > 0
       print word_wrap inbuffer[line_pos] + para_type
     endif
-    print word_wrap buffer[line_pos] + para_type
+    println word_wrap buffer[line_pos]
     println get_position buffer line_pos curs_pos
   elif com = "P" # Print all lines
-    print format_output buffer inbuffer
+    if len c > 2 && !(catch (let from toint c[1])) && !(catch (let to toint c[2]))
+      print format_output buffer inbuffer from to
+    elif len c > 1 && !(catch (let offset toint c[1]))
+      print format_output buffer inbuffer (line_pos - offset) (line_pos + offset)
+    else
+      print format_output buffer inbuffer 0 (len buffer)
+    endif
     println get_position buffer line_pos curs_pos
   elif com = "ac" # Annotate chars
     println word_wrap annot_chars buffer[line_pos]
@@ -821,14 +874,17 @@ while loop
   elif com = "I" # Insert line
     if len c > 1 && !(catch (let times toint c[1]))
       let buffer   line_insert_repeat buffer line_pos times
+      let inbuffer line_insert_repeat inbuffer line_pos times
       let curs_pos 0
     else
       let buffer   line_insert buffer line_pos
+      let inbuffer line_insert inbuffer line_pos
       let curs_pos 0
     endif
     println get_position buffer line_pos curs_pos
   elif com = "E" # Move to last line
     let line_pos max (len buffer - 1) 0
+    let curs_pos 0
     println get_position buffer line_pos curs_pos
   elif com = "e" # Move to last char
     let curs_pos max (len buffer[line_pos] - 1) 0
@@ -914,7 +970,7 @@ while loop
         fprintln stderr "Search term must be non-empty!"
         continue
       endif
-      let curr_word
+      let curr_word term
     endif
     if com = "fnc"
       let pos find_next buffer[line_pos] curs_pos curr_word
@@ -979,7 +1035,8 @@ while loop
           fprintln stderr "Could not write to file!"
           continue
         endif
-        write (write_output buffer) f
+        let file_buff array_copy buffer
+        write (write_output file_buff) f
         close f
         if com = "wq"; return 0; endif
         let curr_file filename
@@ -991,7 +1048,8 @@ while loop
           fprintln stderr "Could not write to file!"
           continue
         endif
-        write (write_output buffer) f
+        let file_buff array_copy buffer
+        write (write_output file_buff) f
         close f
         if com = "wq"; return 0; endif
       endif
@@ -1010,6 +1068,42 @@ while loop
       continue
     endif
     println attr + " = " + ATTR[attr]
+  elif len com > 0 && com[0] = '!' # Run bash command
+    let word string_sub s (cursor_forw_char s 0) (len s)
+    run word
+  elif com = "cd" # Change directory
+    let home env "HOME"
+    if (catch home); let home "~"; endif
+    if len c > 1
+      let word string_sub s (cursor_forw_word s 0) (len s)
+      let word string_replace_word word "~" home
+      if catch (cd word)
+        fprintln stderr "No such directory!"
+      endif
+    else
+      cd home
+    endif
+  elif com = "ls" # List files
+    if len c > 1
+      let word string_sub s (cursor_forw_word s 0) (len s)
+      let dirs dir word
+    else
+      let dirs dir "."
+    endif
+    if catch dirs
+      fprintln stderr "No such directory!"
+    else
+      # Push compare function out of scope
+      # So it doesn't mess with other functions
+      fun format_dirs dirs
+        fun compare x y; return string_compare (to_lower x) (to_lower y); endfun
+        let dirs array_sort dirs
+        fun folder acc x; return acc + x + "\n"; endfun
+        let dirs array_fold "" dirs
+        return dirs
+      endfun
+      print format_dirs dirs
+    endif
   elif com = "add" && len c > 2
     let DICT[c[1]] c[2]
   elif com = "rem" && len c > 1
