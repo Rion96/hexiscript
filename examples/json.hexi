@@ -5,9 +5,6 @@ fun assert cond msg
     if ! cond; throw "AssertError: " + msg; endif
 endfun
 
-# JSON structure:
-# json_obj := (object, type)
-# type     := null, str, num, bool, arr, obj
 fun tuple left right
     let t    arr 2
     let t[0] left
@@ -19,93 +16,46 @@ fun is_tuple t
     return (t is arr && len t = 2)
 endfun
 
-fun is_json j
-    if ! is_tuple j
-        return false
-    endif
-    if j[1] = "null"
-        return true
-    elif j[1] = "arr"
-        let a j[0]
-        if a is arr || a is dict
-            for let i 0; i < len a; i++
-                if ! is_json a[i]
-                    return false
-                endif
-            endfor
-            return true
-        else
-            return false
-        endif
-    elif j[1] = "obj"
-        let d j[0]
-        if d is dict
-            let k keys d
-            for let i 0; i < len d; i++
-                let key k[i]
-                if ! is_json d[key]
-                    return false
-                endif
-            endfor
-            return true
-        else
-            return false
-        endif
-    elif j[1] = "str"
-        return j[0] is str
-    elif j[1] = "num"
-        # Be lazy with numeric values
-        return true
-    elif j[1] = "bool"
-        return j[0] is bool
-    endif
-    return false
-endfun
-
 fun print_tuple t
     assert (is_tuple t) "print_tuple: not a tuple!"
     println "(" + t[0] + ";" + t[1] + ")"
 endfun
 
-fun json_internal_to_string j
-    # Case 1: null
-    if j[1] = "null"
-        return "null"
-    endif
-    # Case 2: str
-    if j[1] = "str"
-        return "\"" + j[0] + "\""
-    endif
-    # Case 3: num
-    if j[1] = "num" || j[1] = "bool"
-        return "" + j[0]
-    endif
-    if j[1] = "arr"
-        let output "["
-        let a j[0]
-        for let i 0; i < len a - 1; i++
-            let output output + json_internal_to_string a[i]
-            let output output + ", "
-        endfor
-        if len a > 0
-            let output output + json_internal_to_string a[len a - 1]
+fun json_internal_to_string j depth
+    let indent ""
+    for let i 0; i < depth; i++
+        let indent indent + "  "
+    endfor
+    if j is str
+        if j = "null"
+            return "null"
         endif
-        return output + "]"
-    endif
-    if j[1] = "obj"
-        let output "{"
-        let d j[0]
-        let k keys d
+        return "\"" + j + "\""
+    elif j is float || j is int || j is bool
+        return "" + j
+    elif j is arr
+        let output "[\n"
+        for let i 0; i < len j - 1; i++
+            let output output + indent + json_internal_to_string j[i] (depth + 1)
+            let output output + ", \n"
+        endfor
+        if len j > 0
+            let output output + indent + json_internal_to_string j[len j - 1] (depth + 1)
+        endif
+        return output + "\n" + indent + "]"
+    elif j is dict
+        let output "{\n"
+        let k keys j
         for let i 0; i < len k - 1; i++
             let key k[i]
-            let output output + "\"" + key + "\": " + json_internal_to_string d[key]
-            let output output + ", "
+            let output output + indent + "\"" + key + "\": " + json_internal_to_string j[key] (depth + 1)
+            let output output + ", \n"
         endfor
-        if len d > 0
-            let key k[len d - 1]
-            let output output + "\"" + key + "\": " + json_internal_to_string d[key]
+        if len j > 0
+            let key k[len j - 1]
+            let output output + indent + "\"" + key + "\": " + json_internal_to_string j[key] (depth + 1)
         endif
-        return output + "}"
+        return output + "\n" + indent + "}"
     endif
 endfun
 
@@ -153,41 +103,46 @@ endfun
 # JSON parsing
 fun json_internal_parse input
     assert (input is str) "json_internal_parse: input not string!"
+    if (len input = 0)
+        return ""
+    endif
     # Case 1: input is null
-    if (len input = 0 || input = "null")
-        return tuple "null" "null"
+    if (input = "null")
+        return "null"
     endif
     # Case 2: input is string
     if (input[0] = '\"')
         assert (input[len input - 1] = '\"') "json_internal_parse: string not closed with \'\"\'"
         let input json_internal_trim_string input
-        return tuple input "str"
+        return input
     endif
     # Case 3: input is number
     if ('0' <= input[0] && input[0] <= '9')
         let i len input - 1
         assert ('0' <= input[i] && input[i] <= '9') "json_internal_parse: number not a number"
-        return tuple input "num"
+        let n tonum input
+        assert ( !(catch n) ) ("json_internal_parse: " + input + " is not a number!")
+        return n
     endif
     if input = "true"
-        return tuple true "bool"
+        return true
     endif
     if input = "false"
-        return tuple false "bool"
+        return false
     endif
     # Case 4: input is object
     if (input[0] = '{')
         assert (input[len input - 1] = '}') "json_internal_parse: object not closed with \''}\'"
         let input json_internal_trim_string input
-        let left json_internal_parse_object input
-        return tuple left "obj"
+        let obj json_internal_parse_object input
+        return obj
     endif
     # Case 5: input is array
     if (input[0] = '[')
         assert (input[len input - 1] = ']') "json_internal_parse: array not closed with \']\'"
         let input json_internal_trim_string input
-        let left json_internal_parse_array input
-        return tuple left "arr"
+        let array json_internal_parse_array input
+        return array
     endif
     throw ("json_internal_parse: could not determine type at: " + input)
 endfun
@@ -257,17 +212,21 @@ fun json_internal_split_comma input
 endfun
 
 fun json_internal_parse_array input
-    let output dict 10
     # Empty array
     if len input = 0
-        return output
+        return arr 0
     endif
+    let output dict 10
     let i 0
     while true
         let t json_internal_split_comma input
         let output[i] json_internal_parse t[0]
         if len t[1] = 0
-            return output
+            let array arr len output
+            for let i 0; i < len output; i++
+                let array[i] output[i]
+            endfor
+            return array
         else
             let input t[1]
         endif
@@ -276,17 +235,16 @@ fun json_internal_parse_array input
 endfun
 
 fun json_internal_parse_object input
+    if len input = 0
+        return dict 0
+    endif
     let output dict 10
     # Empty dictionary
-    if len input = 0
-        return output
-    endif
     while true
         let t   json_internal_split_comma input
         let kv  json_internal_split_colon t[0]
         let key json_internal_parse kv[0]
-        assert (key[1] = "str") "json_internal_parse_object: key not a string!"
-        let key key[0]
+        assert (key is str) "json_internal_parse_object: key not a string!"
         let value json_internal_parse kv[1]
         let output[key] value
         if len t[1] = 0
@@ -305,8 +263,7 @@ endfun
 
 # Alias
 fun json_encode json
-    assert (is_json json) "json_encode: input not json!"
-    return json_internal_to_string json
+    return json_internal_to_string json 0
 endfun
 
 fun main
@@ -319,11 +276,12 @@ fun main
     let output json_encode json
     println output
 
-    let file openin "json_example.json"
+    let file openin "test.json"
     let string ""
-    while !(catch (let s read str file))
-        let string string + s
+    while !(catch (let c read char file))
+        let string string + c
     endwhile
+    println string
     let json json_decode string
     println json_encode json
 endfun
