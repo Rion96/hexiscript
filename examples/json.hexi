@@ -1,0 +1,332 @@
+if (catch JSON_HEXI)
+define JSON_HEXI true
+
+fun assert cond msg
+    if ! cond; throw "AssertError: " + msg; endif
+endfun
+
+# JSON structure:
+# json_obj := (object, type)
+# type     := null, str, num, bool, arr, obj
+fun tuple left right
+    let t    arr 2
+    let t[0] left
+    let t[1] right
+    return t
+endfun
+
+fun is_tuple t
+    return (t is arr && len t = 2)
+endfun
+
+fun is_json j
+    if ! is_tuple j
+        return false
+    endif
+    if j[1] = "null"
+        return true
+    elif j[1] = "arr"
+        let a j[0]
+        if a is arr || a is dict
+            for let i 0; i < len a; i++
+                if ! is_json a[i]
+                    return false
+                endif
+            endfor
+            return true
+        else
+            return false
+        endif
+    elif j[1] = "obj"
+        let d j[0]
+        if d is dict
+            let k keys d
+            for let i 0; i < len d; i++
+                let key k[i]
+                if ! is_json d[key]
+                    return false
+                endif
+            endfor
+            return true
+        else
+            return false
+        endif
+    elif j[1] = "str"
+        return j[0] is str
+    elif j[1] = "num"
+        # Be lazy with numeric values
+        return true
+    elif j[1] = "bool"
+        return j[0] is bool
+    endif
+    return false
+endfun
+
+fun print_tuple t
+    assert (is_tuple t) "print_tuple: not a tuple!"
+    println "(" + t[0] + ";" + t[1] + ")"
+endfun
+
+fun json_internal_to_string j
+    # Case 1: null
+    if j[1] = "null"
+        return "null"
+    endif
+    # Case 2: str
+    if j[1] = "str"
+        return "\"" + j[0] + "\""
+    endif
+    # Case 3: num
+    if j[1] = "num" || j[1] = "bool"
+        return "" + j[0]
+    endif
+    if j[1] = "arr"
+        let output "["
+        let a j[0]
+        for let i 0; i < len a - 1; i++
+            let output output + json_internal_to_string a[i]
+            let output output + ", "
+        endfor
+        if len a > 0
+            let output output + json_internal_to_string a[len a - 1]
+        endif
+        return output + "]"
+    endif
+    if j[1] = "obj"
+        let output "{"
+        let d j[0]
+        let k keys d
+        for let i 0; i < len k - 1; i++
+            let key k[i]
+            let output output + "\"" + key + "\": " + json_internal_to_string d[key]
+            let output output + ", "
+        endfor
+        if len d > 0
+            let key k[len d - 1]
+            let output output + "\"" + key + "\": " + json_internal_to_string d[key]
+        endif
+        return output + "}"
+    endif
+endfun
+
+fun split_string input pos
+    assert (pos > 0 && pos < len input) "split_string input exceeds bounds!"
+    let left ""
+    let right ""
+    for let i 0; i < len input; i++
+        if (i < pos)
+            let left left + input[i]
+        elif (i > pos)
+            let right right + input[i]
+        endif
+    endfor
+    return tuple left right
+endfun
+
+# Trim string on both sides
+fun json_internal_trim_string input
+    assert (input is str) "json_internal_trim_string: input not string!"
+    assert (len input > 1) "json_internal_trim_string: input too small!"
+    let output ""
+    for let i 1; i < len input - 1; i++
+        let output output + input[i]
+    endfor
+    return output
+endfun
+
+# Trim whitespace etc.
+fun json_internal_clean_string input
+    assert (input is str) "json_internal_clean_string: input not string!"
+    let output ""
+    let quote false
+    for let i 0; i < len input; i++
+        if input[i] = '\"'
+            let quote (!quote)
+        elif (!quote) && (input[i] = ' ' || input[i] = '\t' || input[i] = '\n')
+            continue
+        endif
+        let output output + input[i]
+    endfor
+    return output
+endfun
+
+# JSON parsing
+fun json_internal_parse input
+    assert (input is str) "json_internal_parse: input not string!"
+    # Case 1: input is null
+    if (len input = 0 || input = "null")
+        return tuple "null" "null"
+    endif
+    # Case 2: input is string
+    if (input[0] = '\"')
+        assert (input[len input - 1] = '\"') "json_internal_parse: string not closed with \'\"\'"
+        let input json_internal_trim_string input
+        return tuple input "str"
+    endif
+    # Case 3: input is number
+    if ('0' <= input[0] && input[0] <= '9')
+        let i len input - 1
+        assert ('0' <= input[i] && input[i] <= '9') "json_internal_parse: number not a number"
+        return tuple input "num"
+    endif
+    if input = "true"
+        return tuple true "bool"
+    endif
+    if input = "false"
+        return tuple false "bool"
+    endif
+    # Case 4: input is object
+    if (input[0] = '{')
+        assert (input[len input - 1] = '}') "json_internal_parse: object not closed with \''}\'"
+        let input json_internal_trim_string input
+        let left json_internal_parse_object input
+        return tuple left "obj"
+    endif
+    # Case 5: input is array
+    if (input[0] = '[')
+        assert (input[len input - 1] = ']') "json_internal_parse: array not closed with \']\'"
+        let input json_internal_trim_string input
+        let left json_internal_parse_array input
+        return tuple left "arr"
+    endif
+    throw ("json_internal_parse: could not determine type at: " + input)
+endfun
+
+fun json_internal_find_comma input 
+    assert (input is str) "json_internal_find_comma: input not string!"
+    let braces 0
+    let brackets 0
+    let quote false
+    for let i 0; i < len input; i++
+        assert (braces >= 0) "json_internal_find_comma: braces below 0!"
+        assert (brackets >= 0) "json_internal_find_comma: brackets below 0!"
+        if input[i] = ','
+            if braces = 0 && brackets = 0 && !quote
+                return i
+            endif
+        elif input[i] = '\\'
+            i++
+            continue
+        elif input[i] = '['
+            let brackets brackets + 1
+        elif input[i] = ']'
+            let brackets brackets - 1
+        elif input[i] = '{'
+            let braces braces + 1
+        elif input[i] = '}'
+            let braces braces - 1
+        elif input[i] = '\"'
+            let quote (!quote)
+        endif
+    endfor
+    assert (brackets = 0) "json_internal_find_comma: found stray brackets!"
+    assert (braces = 0) "json_internal_find_comma: found stray braces!"
+    assert (! quote) "json_internal_find_comma: found stray quotes!"
+    # No comma found!
+    return len input
+endfun
+
+fun json_internal_find_colon input
+    assert (input is str) "json_internal_find_colon: input not string!"
+    assert (len input > 0) "json_internal_find_colon: input is empty!"
+    let quote false
+    for let i 0; i < len input; i++
+        if (!quote) && input[i] = ':'
+            return i
+        elif input[i] = '\"'
+            let quote (!quote)
+        endif
+    endfor
+    assert (! quote) "json_internal_find_colon: found stray quotes!"
+    return len input
+endfun
+
+fun json_internal_split_colon input
+    let pos json_internal_find_colon input
+    assert (pos < len input) "json_internal_split_colon: no colon found!"
+    return split_string input pos
+endfun
+
+fun json_internal_split_comma input
+    let pos json_internal_find_comma input
+    if pos < len input
+        return split_string input pos
+    endif
+    # No comma found!
+    return tuple input ""
+endfun
+
+fun json_internal_parse_array input
+    let output dict 10
+    # Empty array
+    if len input = 0
+        return output
+    endif
+    let i 0
+    while true
+        let t json_internal_split_comma input
+        let output[i] json_internal_parse t[0]
+        if len t[1] = 0
+            return output
+        else
+            let input t[1]
+        endif
+        i++
+    endwhile
+endfun
+
+fun json_internal_parse_object input
+    let output dict 10
+    # Empty dictionary
+    if len input = 0
+        return output
+    endif
+    while true
+        let t   json_internal_split_comma input
+        let kv  json_internal_split_colon t[0]
+        let key json_internal_parse kv[0]
+        assert (key[1] = "str") "json_internal_parse_object: key not a string!"
+        let key key[0]
+        let value json_internal_parse kv[1]
+        let output[key] value
+        if len t[1] = 0
+            return output
+        else
+            let input t[1]
+        endif
+    endwhile
+endfun
+
+fun json_decode input
+    assert (input is str) "json_decode: input not string!"
+    let input json_internal_clean_string input
+    return json_internal_parse input
+endfun
+
+# Alias
+fun json_encode json
+    assert (is_json json) "json_encode: input not json!"
+    return json_internal_to_string json
+endfun
+
+fun main
+    let string "\"robin\""
+    let string "123"
+    let string "[\"Test\", 2, [\"a\",\"b b\",\"c\"], 3, [], \"Howdy\"]"
+    let string "{\"key\":\"value\"}"
+    let string "{\"name\":   \"robin\", \"test\": \"yup\", \"list\": [1,2,[],3]}"
+    let json json_decode string
+    let output json_encode json
+    println output
+
+    let file openin "json_example.json"
+    let string ""
+    while !(catch (let s read str file))
+        let string string + s
+    endwhile
+    let json json_decode string
+    println json_encode json
+endfun
+main()
+
+endif
