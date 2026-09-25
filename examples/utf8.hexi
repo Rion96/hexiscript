@@ -1,0 +1,58 @@
+if catch UTF8_HEXI
+define UTF8_HEXI true
+
+# Reminder
+# 0xxxxxxx ASCII   (c < 128)
+# 10xxxxxx cont.   (c & 192 = 128)
+# 110xxxxx 2 Bytes (c & 224 = 192)
+# 1110xxxx 3 Bytes (c & 240 = 224)
+# 11110xxx 4 Bytes (c & 248 = 240)
+
+fun utf8_validate s
+    fun is_cont s i
+        if len s < i; return false; endif
+        return ((s[i] + 0) & 192) = 128
+    endfun
+    for let i 0; i < len s; i++
+        let c 0 + s[i]
+        if c >= 128
+            if c < 192; return false
+            elif c < 224; i++; if is_cont s i; else return false; endif
+            elif c < 240; i++; if is_cont s i && is_cont s (i + 1); i++; else return false; endif
+            else i++; if is_cont s i && is_cont s (i + 1) && is_cont s (i + 2); let i i + 2; else return false; endif
+            endif
+        endif
+    endfor
+    return true
+endfun
+
+# Assumes valid utf8
+fun utf8_len s
+    let count 0
+    for let i 0; i < len s; i++
+        if ((s[i] + 0) & 192) != 128; count++; endif
+    endfor
+    return count
+endfun
+
+# Assumes valid utf8!
+fun utf8_get_char s pos
+    let curr 0
+    # Skip continuation bytes
+    for let i 0; i < len s && pos > 0; i++
+        if ((s[i] + 0) & 192) != 128
+            pos--
+        endif
+    endfor
+    if pos > 0; throw ("utf8_get_char: out of bounds"); endif
+    while ((s[i] + 0) & 192) = 128
+        i++
+    endwhile
+    if   s[i] + 0 < 128; return "" + s[i]
+    elif s[i] + 0 < 224; return "" + s[i] + s[i+1]
+    elif s[i] + 0 < 240; return "" + s[i] + s[i+1] + s[i+2]
+    else return "" + s[i] + s[i+1] + s[i+2] + s[i+3]
+    endif
+endfun
+
+endif
