@@ -1,0 +1,96 @@
+if catch HTTP_HEXI
+define HTTP_HEXI true
+
+fun a_href href a
+    return "<a href=\"" + href + "\">" + a + "</a>"
+endfun
+
+# Parse query string into dict
+# Strings remain url encoded!
+fun parse_query_string s
+    let output dict 10
+    let value false
+    let key ""
+    for let i 0; i < len s; i++
+        if value && s[i] = '='; throw "Errant equals sign in query string!"
+        elif s[i] = '=' && len key = 0; throw "Empty key in query string!"
+        elif s[i] = '='; let value true; let output[key] ""; continue
+        elif !value && s[i] = '&'; throw "Errant ampersand in query string!"
+        elif s[i] = '&'; let value false; let key ""; continue
+        elif value; let output[key] output[key] + s[i]
+        else let key key + s[i]; endif
+    endfor
+    return output
+endfun
+
+fun unreserved_char c
+    return 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || '0' <= c && c <= '9' || c = '-' || c = '.' || c = '_' || c = '~'
+endfun
+
+fun char_to_hex c
+    let c tonum c; let lower c % 16; let c c / 16
+    if lower >= 10; let lower lower - 10 + 'A'
+    else let lower lower + '0'; endif
+    if c >= 10; let c c - 10 + 'A'
+    else let c c + '0'; endif
+    return "" + tochar c + tochar lower
+endfun
+
+fun rawurlencode s
+    let output ""
+    for let i 0; i < len s; i++
+        if unreserved_char s[i]; let output output + s[i]
+        else let output output + "%" + char_to_hex s[i]; endif
+    endfor
+    return output
+endfun
+
+fun urlencode s
+    let output ""
+    for let i 0; i < len s; i++
+        if s[i] = ' '; let output output + "+"
+        elif unreserved_char s[i]; let output output + s[i]
+        else let output output + "%" + char_to_hex s[i]; endif
+    endfor
+    return output
+endfun
+
+fun rawurldecode s
+    let output ""
+    for let i 0; i < len s; i++
+        if s[i] = '%'; let output output + tochar (tonum ("0x" + s[++i] + s[++i]))
+        else let output output + s[i]; endif
+    endfor
+    return output
+endfun
+
+fun urldecode s
+    let output ""
+    for let i 0; i < len s; i++
+        if s[i] = '+'; let output output + " "
+        elif s[i] = '%'; let output output + tochar (tonum ("0x" + s[++i] + s[++i]))
+        else let output output + s[i]; endif
+    endfor
+    return output
+endfun
+
+fun html_page h b
+    return "<!DOCTYPE html><html><head>" + h + "</head><body>" + b + "</body></html>"
+endfun
+
+fun html_response r
+    println "Content-Type: text/html; charset=UTF-8\n"
+    println r
+endfun
+
+fun text_response t
+    println "Content-Type: text/plain; charset=UTF-8\n"
+    println t
+endfun
+
+fun json_response j
+    println "Content-Type: application/json; charset=UTF-8\n"
+    println j
+endfun
+
+endif

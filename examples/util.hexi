@@ -26,10 +26,12 @@ fun sleep f
   run "sleep " + f
 endfun
 
+# Dangerous! Consider using read_file instead and write only when done
 fun open_append f
   assert (f is str) "open_append: file name must be string!"
   let i openin f
   if (catch i); return i; endif
+  let out ""
   while !(catch (let s read str i))
     let out (out + s + NEWLINE)
   endwhile
@@ -40,6 +42,19 @@ fun open_append f
   return f
 endfun
 
+# Read entire file into memory
+fun read_file f
+    assert (f is str) "read_file: file name must be string!"
+    let i openin f
+    assertnot (catch i) "read_file: could not open file!"
+    let output ""
+    while !(catch (let s read str i))
+        let output output + s
+    endwhile
+    close f
+    return output
+endfun
+
 fun fprint f s
   assert (f is str) "fprint: file name must be string!"
   let f openout f
@@ -47,7 +62,7 @@ fun fprint f s
   write s f
   close f
 endfun
-fun fprintln f s; fprint f s; println ""; endfun
+fun fprintln f s; fprint f (s + "\n"); endfun
 
 fun to_upper s
   let out ""
@@ -908,5 +923,6 @@ fun kmp s w
   endwhile
   return out
 endfun
+fun string_search s w; return kmp s w; endfun
 
 endif # UTIL_HEXI
