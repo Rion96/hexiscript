@@ -48,7 +48,7 @@ fun read_file f
     let i openin f
     assertnot (catch i) "read_file: could not open file!"
     let output ""
-    while !(catch (let s read str i))
+    while !(catch (let s read char i))
         let output output + s
     endwhile
     close f

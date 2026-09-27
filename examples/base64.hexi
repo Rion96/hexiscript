@@ -1,0 +1,141 @@
+if catch BASE64_HEXI
+define BASE64_HEXI true
+
+fun base64_to_ascii b
+    if b <= 25; return tochar (0x41 + b)
+    elif b <= 51; return tochar (0x61 + b - 26)
+    elif b <= 61; return tochar (0x30 + b - 52)
+    elif b = 62; return '+'
+    elif b = 63; return '/'
+    else throw "base64_to_ascii: Invalid base64 character!"; endif
+endfun
+
+fun ascii_to_base64i a
+    if a = '/'; return 63
+    elif a = '+'; return 62
+    elif '0' <= a && a <= '9'; return a - 0x30 + 52
+    elif 'a' <= a && a <= 'z'; return a - 0x61 + 26
+    elif 'A' <= a && a <= 'Z'; return a - 0x41
+    else throw "ascii_to_base64i: Invalid base64 character!"; endif
+endfun
+
+# Guide:
+# xxxx xxxx yyyy yyyy zzzz zzzz
+# 1111 1122 2222 3333 3344 4444
+fun base64_encode_three i j k
+    let i tonum i; let j tonum j; let k tonum k
+    let first (i & 0xFC) >>> 2
+    let second (i & 0x03) << 4 | (j & 0xF0) >>> 4
+    let third (j & 0x0F) << 2 | (k & 0xC0) >>> 6
+    let fourth (k & 0x3F)
+    return "" + base64_to_ascii first + base64_to_ascii second + base64_to_ascii third + base64_to_ascii fourth
+endfun
+
+# Guide:
+# xxxx xxxx yyyy yyyy 00
+# 1111 1122 2222 3333 33
+fun base64_encode_two i j
+    let i tonum i; let j tonum j
+    let first  (i & 0xFC) >>> 2
+    let second (i & 0x03) << 4 | (j & 0xF0) >>> 4
+    let third  (j & 0x0F) << 2
+    return "" + base64_to_ascii first + base64_to_ascii second + base64_to_ascii third + "="
+endfun
+
+# Guide:
+# xxxx xxxx 0000
+# 1111 1122 2222
+fun base64_encode_one i
+    let i tonum i
+    let first  (i & 0xFC) >>> 2
+    let second (i & 0x03) << 4
+    return "" + base64_to_ascii first + base64_to_ascii second + "=="
+endfun
+
+# From string
+fun base64_encode s
+    let output ""
+    for let i 0; i < len s - 2; let i i + 3
+        let output output + base64_encode_three s[i] s[i+1] s[i+2]
+    endfor
+    if i = len s - 2
+        let output output + base64_encode_two s[i] s[i+1]
+    elif i = len s - 1
+        let output output + base64_encode_one s[i]
+    endif
+    return output
+endfun
+
+# From file
+fun base64_encode_file f
+    let output ""
+    while !(catch (let first read char f))
+        if catch (let second read char f)
+            let output output + base64_encode_one first
+        elif catch (let third read char f)
+            let output output + base64_encode_two first second
+        else
+            let output output + base64_encode_three first second third
+        endif
+    endwhile
+    return output
+endfun
+
+# Guide:
+# __ii iiii __jj jjjj __kk kkkk __ll llll
+#   xx xxxx   xx yyyy   yy yyzz   zz zzzz
+fun base64_decode_four i j k l
+    let i ascii_to_base64i i
+    let j ascii_to_base64i j
+    let k ascii_to_base64i k
+    let l ascii_to_base64i l
+    let first  (i << 2) | (j & 0x30) >>> 4
+    let second ((j & 0x0F) << 4) | (k & 0x3C) >>> 2
+    let third  (k & 0x03) << 6 | l
+    return "" + tochar first + tochar second + tochar third
+endfun
+
+# Guide:
+# __ii iiii __jj jjjj __kk kkkk
+#   xx xxxx   xx yyyy   yy yy00
+fun base64_decode_three i j k
+    let i ascii_to_base64i i
+    let j ascii_to_base64i j
+    let k ascii_to_base64i k
+    let first  (i << 2) | (j & 0x30) >>> 4
+    let second ((j & 0x0F) << 4) | (k & 0x3C) >>> 2
+    return "" + tochar first + tochar second
+endfun
+
+# Guide:
+# __ii iiii __jj jjjj
+#   xx xxxx   xx 0000
+fun base64_decode_two i j
+    let i ascii_to_base64i i
+    let j ascii_to_base64i j
+    let x i << 2 | (j & 0x30) >>> 4
+    return "" + tochar x
+endfun
+
+fun base64_decode s
+    let output ""
+    for let i 0; i < len s - 4; let i i + 4
+        let output output + base64_decode_four s[i] s[i+1] s[i+2] s[i+3]
+    endfor
+    if i = len s - 4
+        if s[len s - 2] = '='
+            let output output + base64_decode_two s[i] s[i+1]
+        elif s[len s - 1] = '='
+            let output output + base64_decode_three s[i] s[i+1] s[i+2]
+        else
+            let output output + base64_decode_four s[i] s[i+1] s[i+2] s[i+3]
+        endif
+    elif i = len s - 3
+        let output output + base64_decode_three s[i] s[i+1] s[i+2]
+    elif i = len s - 2
+        let output output + base64_decode_two s[i] s[i+1]
+    endif
+    return output
+endfun
+
+endif
