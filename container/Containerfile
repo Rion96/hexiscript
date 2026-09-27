@@ -1,0 +1,9 @@
+FROM debian:trixie as build
+COPY interpreter.ml .
+RUN apt-get update && apt-get install -y ocaml && ocamlopt -o hexi interpreter.ml
+FROM debian:trixie
+RUN apt-get update && apt-get install -y lighttpd && rm -rf /var/lib/apt/lists/*
+#RUN ln -s ../conf-available/10-cgi.conf /etc/lighttpd/conf-enabled
+COPY container/10-cgi.conf /etc/lighttpd/conf-enabled
+COPY --chown=root:root --from=build hexi /usr/local/bin
+CMD [ "lighttpd", "-f", "/etc/lighttpd/lighttpd.conf", "-D" ]
