@@ -47,7 +47,7 @@ fun parse_cookies s
     let value false
     let key ""
     for let i 0; i < len s; i++
-        if value && s[i] = '='; throw "Errant equals sign in cookies!"
+        if value && s[i] = '='; continue
         elif s[i] = '=' && len key = 0; throw "Empty key in cookies!"
         elif s[i] = '='; let value true; let output[key] ""; continue
         elif !value && s[i] = ';'; throw "Errant semicolon in cookie!"
