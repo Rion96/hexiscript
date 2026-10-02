@@ -41,6 +41,23 @@ fun parse_query_string s
     return output
 endfun
 
+# Parse cookies
+fun parse_cookies s
+    let output dict 10
+    let value false
+    let key ""
+    for let i 0; i < len s; i++
+        if value && s[i] = '='; throw "Errant equals sign in cookies!"
+        elif s[i] = '=' && len key = 0; throw "Empty key in cookies!"
+        elif s[i] = '='; let value true; let output[key] ""; continue
+        elif !value && s[i] = ';'; throw "Errant semicolon in cookie!"
+        elif s[i] = ';'; let value false; let key ""; i++; continue
+        elif value; let output[key] output[key] + s[i]
+        else let key key + s[i]; endif
+    endfor
+    return output        
+endfun
+
 fun unreserved_char c
     return 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || '0' <= c && c <= '9' || c = '-' || c = '.' || c = '_' || c = '~'
 endfun
